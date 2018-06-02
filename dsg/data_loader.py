@@ -1,6 +1,6 @@
 import pandas as pd
 
-import simple_ml.util.util as util
+import dsg.util as util
 
 class DataLoader(object):
 	""" The class contains all the method to load the
