@@ -170,7 +170,7 @@ class Classifier(object):
 		for sample in X:
 			try:
 				features = self.customer_dictionary[sample[2]]
-				pred = self.classifier.predict(features)
+				pred = self.classifier.predict(features)[0]
 			except KeyError:
 				pred = 0
 			predictions.append(pred)
