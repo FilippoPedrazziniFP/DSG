@@ -6,14 +6,38 @@ import operator
 from itertools import chain
 from collections import defaultdict
 from sklearn.linear_model import LogisticRegression
+from dsg.data_loader import DataLoader
 
-class BaselineClassier(object):
+class Classier(object):
 	def __init__(self):
-		super(BaselineClassier, self).__init__()
-		self.model = self.build_model()
+		super(Classier, self).__init__()
 
-	def build_model(self):
+	def create_cus_bond_freq_dictionary(self, df):
+		"""
+			The method creates the dictionary in which each
+			key is represented by (CustomerIdx, BondIdx) and 
+			the value is the number of historical occurrences 
+			betweem the two. 
+		"""
 		return
+
+	def create_cus_freq_dictionary(self, df):
+		"""		
+			The method creates a dictionary based on the frequence
+			of interaction during the considered period.
+			CustomerIdx : Frequency
+		"""
+		dictionary = df.groupby('CustomerIdx').count()['TradeDateKey'].to_dict()
+		return dictionary
+
+	def create_cus_int_dictionary(self, df):
+		"""		
+			The method creates a dictionary based on the frequence
+			of interaction during the considered period.
+		"""
+		max_value = df_trade["TradeDateKey"].max()
+		dictionary = df[df["TradeDateKey"] == max_value].groupby("CustomerIdx").count()["CustomerInterest"].to_dict()
+		return dictionary
 
 	def features_labels_split(self, X):
 		"""
@@ -32,42 +56,26 @@ class BaselineClassier(object):
 	def take(self, n, iterable):
 		return list(islice(iterable, n))
 
-	def create_dictionary(self, train):
+	def create_dictionary(self, df_train):
 		"""
 			The method creates a dictionary where the key 
 			represents the customer id and the value
 			is a list with 2 features 
 			[Normalized Frequency, 
-				Sum of Interest of the interests]
+				Sum of Interest]
 		"""
-
 		# Creating Frequency Dictionary 
-		customers_ids = np.unique(train[:,1])
-		cidx_freq = {}
-		for c in customers_ids:
-		    i = 0
-		    for sample in train:
-		        if sample[1] == c:
-		            i=i+1
-		    cidx_freq[c] = i
+		cidx_freq = self.create_cus_freq_dictionary(df_train)
 
-		# Creating Interest Dictionary 
-		last_date = train[-1,0]
-		print(last_date)
-		cidx_int = {}
-		for c in customers_ids:
-			for sample in train:
-				interest = 0
-				if sample[0] == last_date:
-					interest = interest + sample[4]
-			cidx_int[c] = interest
+		# Creating Interest Dictionary
+		cidx_int = self.create_cus_int_dictionary(df_train)
 
 		# Merge the 2 dictionaries
 		cidx_freq_int = defaultdict(list)
 		for k, v in chain(cidx_freq.items(), cidx_int.items()):
 			cidx_freq_int[k].append(v)
 
-		# Creating Normalized Frequency Dictionary
+		# Normalize Frequency 
 		max_value = self.get_max_value(cidx_freq_int)
 		print("MAX VALUE: ", max_value)
 		for k, v in cidx_freq_int.items():
@@ -75,22 +83,14 @@ class BaselineClassier(object):
 		
 		return cidx_freq_int
 
-	def load_dictionary(self, X):
-		# Create Frequency Dictionary
-		try:
-			self.cidx_freq_int = self.restore_dictionary()
-		except:
-			self.cidx_freq_int = self.create_dictionary(X)
-		return
+	def fit(self, df_train):
 
-	def fit(self, train):
-		# Load Dictionary or create a new one
-		self.load_dictionary(train)
-		
+		# Create Customer Freq Dictionary
+		features_dictionary = self.create_dictionary(df_train)
+
 		# Create Train set having a dictionary
-		train = self.create_set(self.cidx_freq_int)
-		print(train[0:10])
-		
+		train = self.create_set(features_dictionary)
+				
 		# Split Features and Labels
 		X, y = self.features_labels_split(train)
 
@@ -104,7 +104,7 @@ class BaselineClassier(object):
 	def create_set(self, dictionary):
 		"""
 			The method creates a matrix with 2 columns:
-			CustomerIdx, NormalizedFrequency given a dictionary
+			[CustomerIdx, NormalizedFrequency] given a dictionary
 			of CustomersIdx : Normalized Values.
 		"""
 		train = []
@@ -138,31 +138,6 @@ class BaselineClassier(object):
 		for key, val in n_items:
 			print(key, val)
 		return
-
-	def save_dictionary(self):
-		"""
-			The method saves the training 
-			dictionary in a pickle file.
-
-		"""
-		try:
-			pickle.dump(self.cidx_freq_int, open("./weights/cidx_freq_int.p", "wb"))
-			print("Dictionaries saved...")
-		except:
-			pass
-		return
-
-	def restore_dictionary(self):
-		"""
-			The method restore the dictionary
-			from a pickle file.
-		"""
-		try:
-			cidx_freq_int = pickle.load(open("./weights/cidx_freq_int.p", "rb"))
-			print("Model restored...")
-		except:
-			pass
-		return cidx_freq_int
 
 	def predict(self, X):
 		predictions = []

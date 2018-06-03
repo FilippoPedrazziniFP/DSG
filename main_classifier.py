@@ -5,8 +5,8 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.baseline.baseline_preprocessing import BaselinePreprocessor
-from dsg.baseline.baseline_model import Baseline
+from dsg.classifier.classifier_preprocessing import BaselinePreprocessor
+from dsg.classifier.classifier import Classier
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -41,8 +41,6 @@ def main():
 	loader = DataLoader()
 	df = loader.load_trade_data()
 
-	print(df.describe())
-
 	# Clean Trade Data
 	preprocessor = BaselinePreprocessor(
 		from_date=20180101,
@@ -50,22 +48,34 @@ def main():
 		test_samples=args.test_samples,
 		val_samples=args.val_samples
 		)
-	train, test, val, X = preprocessor.fit_transform(df)
+	train, test, val, df = preprocessor.fit_transform(df)
 
 	preproc_time = time.clock() - start
-	print("TIME TO LOAD AND PREPROCESS THE DATA: ", preproc_time)
+	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
+
+	# Fit and Evaluate the model
+	model = BaselineClassier()
+	model.fit(train)
+	model.print_dictionary()
+
+	# Evaluate the model
+	score = model.evaluate(test)
+	print("TEST SCORE: ", score)
 	
+	fit_model = time.clock() - preproc_time
+	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
+
 	# Fit on the entire data 
 	model.fit(X)
 	model.print_dictionary()
 	
-	fit_data = time.clock() - preproc_time
+	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
 	
 	# Create the submission file
 	create_submission_file(loader, preprocessor, model)
 
-	submission_time = time.clock() - fit_data
+	submission_time = time.clock() - fit_model
 	print("TIME TO PREDICT AND CREATE SUBMISSION FILE: ", submission_time)
 
 	return
