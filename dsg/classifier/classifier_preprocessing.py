@@ -1,13 +1,12 @@
 import dsg.util as util
+from dsg.test_train_data_generation.fake_data_generator import DataGenerator
 
-class BaselinePreprocessor(object):
-	def __init__(self, from_date, train_samples, 
-			test_samples, val_samples):
-		super(BaselinePreprocessor, self).__init__()
+class ClassifierPreprocessor(object):
+	def __init__(self, from_date, test_date, val_date):
+		super(ClassifierPreprocessor, self).__init__()
 		self.from_date = from_date
-		self.train_samples = train_samples
-		self.test_samples = test_samples
-		self.val_samples = val_samples
+		self.test_date = test_date
+		self.val_date = val_date
 
 	def fit(self, df):
 		return
@@ -54,17 +53,20 @@ class BaselinePreprocessor(object):
 		df = self.filter_data(df, self.from_date)
 
 		# Train, test, val split
-		train, test, val = self.train_test_validation_split(X)
+		data_generator = DataGenerator()
+		train = data_generator.generate_train_dataset(df, till_date=min(self.test_date, self.val_date))
+		test = data_generator.generate_test_dataset(df, self.test_date)
+		validation = data_generator.generate_test_dataset(df, self.val_date)
 
-		return train, test, val, df
+		# Entire Train
+		data = data_generator.generate_train_dataset(df, till_date=min(20180424, 20180424))
+
+		return train, test, validation, data
 
 	def train_test_validation_split(self, features):
 		"""
 			The method splits the data into train/test/validation
 		"""
-		test = features
-		val = features[:-self.test_samples]
-		train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
-		return train, test, val
+		raise NotImplementedError
 
 		

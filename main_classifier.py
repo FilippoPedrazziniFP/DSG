@@ -5,19 +5,13 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.classifier.classifier_preprocessing import BaselinePreprocessor
-from dsg.classifier.classifier import Classier
+from dsg.classifier.classifier_preprocessing import ClassifierPreprocessor
+from dsg.classifier.classifier import Classifier
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
 
 """ General Parameters """
-parser.add_argument('--train_samples', type=int, default=600, 
-	help='number of training examples.')
-parser.add_argument('--test_samples', type=int, default=100, 
-	help='number of test examples.')
-parser.add_argument('--val_samples', type=int, default=100, 
-	help='number of validation examples.')
 args = parser.parse_args()
 
 def create_submission_file(loader, preprocessor, model):
@@ -42,21 +36,28 @@ def main():
 	df = loader.load_trade_data()
 
 	# Clean Trade Data
-	preprocessor = BaselinePreprocessor(
+	preprocessor = ClassifierPreprocessor(
 		from_date=20180101,
-		train_samples=args.train_samples,
-		test_samples=args.test_samples,
-		val_samples=args.val_samples
+		test_date=20180420,
+		val_date=20180419
 		)
-	train, test, val, df = preprocessor.fit_transform(df)
+	train, test, val, data = preprocessor.fit_transform(df)
+
+	print("TRAIN")
+	print(train.head(3))
+
+	print("TEST")
+	print(test.head(3))
+
+	print("VALIDATION")
+	print(val.head(3))
 
 	preproc_time = time.clock() - start
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = BaselineClassier()
+	model = Classifier()
 	model.fit(train)
-	model.print_dictionary()
 
 	# Evaluate the model
 	score = model.evaluate(test)
@@ -66,8 +67,7 @@ def main():
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
 	# Fit on the entire data 
-	model.fit(X)
-	model.print_dictionary()
+	model.fit(data)
 	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
