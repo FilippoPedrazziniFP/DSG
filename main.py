@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import tensorflow as tf
 import time
+import pandas as pd
 
 from dsg.data_loader import DataLoader
 from dsg.baseline.baseline_preprocessing import BaselinePreprocessor
@@ -11,7 +12,7 @@ import dsg.util as util
 parser = argparse.ArgumentParser()
 
 """ General Parameters """
-parser.add_argument('--train_samples', type=int, default=300, 
+parser.add_argument('--train_samples', type=int, default=10000, 
 	help='number of training examples.')
 parser.add_argument('--test_samples', type=int, default=100, 
 	help='number of test examples.')
@@ -19,13 +20,15 @@ parser.add_argument('--val_samples', type=int, default=100,
 	help='number of validation examples.')
 args = parser.parse_args()
 
+MAX_VALUE = 29266
+
 def create_submission_file(loader, preprocessor, model):
 	test = loader.load_challenge_data()
 	X = preprocessor.test_transform(test)
 	preds = model.predict_for_submission(X)
 	submission = loader.load_submission_file()
 	submission["CustomerInterest"] = preds
-	pd.to_csv(submission, util.SUBMISSION)
+	submission.to_csv(util.SUBMISSION, index=False)
 	return
 
 def main():
@@ -54,7 +57,10 @@ def main():
 
 	# Fit and Evaluate the model
 	model = Baseline()
+	model.create_frequency_dictionary()
 	model.fit(X_train, y_train)
+	model.print_dictionary()
+	model.save_dictionary()
 	
 	score = model.evaluate(X_test, y_test)
 	print("TEST ERROR: ", score)
@@ -62,10 +68,14 @@ def main():
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
+	exit()
+
 	# Fit on the entire data 
 	model.fit(X, y)
+	model.create_frequency_dictionary()
+	model.print_dictionary()
 	model.save_dictionary()
-
+	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
 	

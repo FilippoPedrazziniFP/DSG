@@ -18,4 +18,4 @@ LABEL_TAG = "CustomerInterest"
 
 # Submission File
 
-SUBMISSION = ".data/submission.csv"
+SUBMISSION = "./data/submission.csv"

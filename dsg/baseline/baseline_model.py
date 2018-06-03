@@ -1,6 +1,8 @@
 from sklearn.metrics import roc_auc_score
 import numpy as np
+from itertools import islice
 import pickle
+import operator
 
 class Baseline(object):
 	def __init__(self):
@@ -10,12 +12,16 @@ class Baseline(object):
 	def build_model(self):
 		return
 
-	def fit(self, X_train, y_train):
+	def take(self, n, iterable):
+		return list(islice(iterable, n))
+
+	def create_frequency_dictionary(self, X_train, y_train):
 		"""
 			The method creates a dictionary where the key 
 			represents the customer id and the value
 			is the normalized frequency of the interactions.
 		"""
+		# Creating Frequency Dictionary
 		customers_ids = np.unique(X_train[:,1])
 		self.cidx_freq = {}
 		for c in customers_ids:
@@ -24,6 +30,37 @@ class Baseline(object):
 		        if sample[1] == c:
 		            i=i+1
 		    self.cidx_freq[c] = i
+
+		# Creating Normalized Frequency Dictionary
+		max_value = self.get_max_value()
+		print("MAX VALUE: ", max_value)
+		for k, v in self.cidx_freq.items():
+			self.cidx_freq[k] = v/max_value
+		return
+
+	def create_train_set(self):
+		
+		return
+
+	def fit(self, X_train, y_train):
+		"""
+			Simple classifier to put a weight 
+			to the frequency feature.
+		"""
+
+		return
+
+	def get_max_value(self):
+		max_value = 0
+		for k, v in self.cidx_freq.items():
+			if v > max_value:
+				max_value = v
+		return max_value
+
+	def print_dictionary(self):
+		n_items = self.take(10, self.cidx_freq.items())
+		for key, val in n_items:
+			print(key, val)
 		return
 
 	def save_dictionary(self):
@@ -45,7 +82,7 @@ class Baseline(object):
 			from a pickle file.
 		"""
 		try:
-			pickle.load(open("./weights/cust_dict.p", "rb"))
+			self.cidx_freq = pickle.load(open("./weights/cust_dict.p", "rb"))
 			print("Model restored...")
 		except:
 			pass
