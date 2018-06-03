@@ -13,15 +13,7 @@ class BaselinePreprocessor(object):
 		return
 
 	def test_transform(self, df):
-
-		print(df.head(5))
-
-		# Features Labels Split
-		X, y = self.features_labels_split(df)
-
-		print(X.shape)
-		print(X[0:10])
-
+		X = df.values
 		return X
 
 	def transform(self, df):
@@ -36,21 +28,6 @@ class BaselinePreprocessor(object):
 		df['Frequency'] = df.groupby('CustomerIdx')['CustomerIdx'].transform('count')
 		df['Probability'] = df['Frequency'].apply(lambda x: x/max_frequency)
 		return df
-
-	def features_labels_split(self, df):
-		"""
-			The method splits the data into Features and Labels
-			returning a numpy array
-			@args
-				df : Data Frame
-			@return
-				features : numpy array
-				labels : numpy array
-		"""
-		labels = df[util.LABEL_TAG].values
-		df = df.drop([util.LABEL_TAG], axis=1)
-		features = df.values
-		return features, labels
 
 	def filter_customers(self, df, min_value):
 		df_freq = df.groupby("CustomerIdx").count()["TradeDateKey"].reset_index()
@@ -76,28 +53,19 @@ class BaselinePreprocessor(object):
 		# Filter Data 
 		df = self.filter_data(df, self.from_date)
 
-		print(df.head(5))
-
-		# Features Labels Split
-		X, y = self.features_labels_split(df)
-
-		print(X.shape)
-		print(X[0:10])
+		# From DF to numpy array
+		X = df.values
 
 		# Train, test, val split
-		X_train, y_train, X_test, y_test, X_val, y_val = self.train_test_validation_split(X, y)
+		train, test, val = self.train_test_validation_split(X)
 
-		return X_train, y_train, X_test, y_test, X_val, y_val, X, y
+		return train, test, val, X
 
-	def train_test_validation_split(self, features, labels):
-
-		X_test = features[-self.test_samples:]
-		y_test = labels[-self.test_samples:]
-
-		X_val = features[-(self.test_samples+self.val_samples):-self.test_samples]
-		y_val = labels[-(self.test_samples+self.val_samples):-self.test_samples]
-
-		X_train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
-		y_train = labels[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
-
-		return X_train, y_train, X_test, y_test, X_val, y_val
+	def train_test_validation_split(self, features):
+		"""
+			The method splits the data into train/test/validation
+		"""
+		test = features
+		val = features[:-self.test_samples]
+		train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
+		return train, test, val
