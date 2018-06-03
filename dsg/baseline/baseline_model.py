@@ -1,4 +1,6 @@
 from sklearn.metrics import roc_auc_score
+import numpy as np
+import pickle
 
 class Baseline(object):
 	def __init__(self):
@@ -24,10 +26,38 @@ class Baseline(object):
 		    self.cidx_freq[c] = i
 		return
 
+	def save_dictionary(self):
+		"""
+			The method saves the training 
+			dictionary in a pickle file.
+
+		"""
+		try:
+			pickle.dump(self.cidx_freq, open("./weights/cust_dict.p", "wb"))
+			print("Model saved...")
+		except:
+			pass
+		return
+
+	def restore_dictionary(self):
+		"""
+			The method restore the dictionary
+			from a pickle file.
+		"""
+		try:
+			pickle.load(open("./weights/cust_dict.p", "rb"))
+			print("Model restored...")
+		except:
+			pass
+		return
+
 	def predict(self, X):
 		predictions = []
 		for sample in X:
-			pred = self.cidx_freq[sample[1]]
+			try: 
+				pred = self.cidx_freq[sample[1]]
+			except KeyError:
+				pred = 0
 			predictions.append(pred)
 		return predictions
 
@@ -39,7 +69,10 @@ class Baseline(object):
 	def predict_for_submission(self, X):
 		predictions = []
 		for sample in X:
-			pred = self.cidx_freq[sample[2]]
+			try:
+				pred = self.cidx_freq[sample[2]]
+			except KeyError:
+				pred = 0
 			predictions.append(pred)
 		return predictions
 		

@@ -12,9 +12,9 @@ class BaselinePreprocessor(object):
 	def fit(self, df):
 		return
 
-	def test_transformation(self, df):
+	def test_transform(self, df):
 
-		print(df.head())
+		print(df.head(5))
 
 		# Features Labels Split
 		X, y = self.features_labels_split(df)
@@ -75,6 +75,8 @@ class BaselinePreprocessor(object):
 
 		# Filter Data 
 		df = self.filter_data(df, self.from_date)
+
+		print(df.head(5))
 
 		# Features Labels Split
 		X, y = self.features_labels_split(df)
