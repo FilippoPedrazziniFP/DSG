@@ -53,13 +53,10 @@ class BaselinePreprocessor(object):
 		# Filter Data 
 		df = self.filter_data(df, self.from_date)
 
-		# From DF to numpy array
-		X = df.values
-
 		# Train, test, val split
 		train, test, val = self.train_test_validation_split(X)
 
-		return train, test, val, X
+		return train, test, val, df
 
 	def train_test_validation_split(self, features):
 		"""
@@ -69,3 +66,5 @@ class BaselinePreprocessor(object):
 		val = features[:-self.test_samples]
 		train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
 		return train, test, val
+
+		

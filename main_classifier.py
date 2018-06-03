@@ -5,22 +5,20 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.baseline.baseline_preprocessing import BaselinePreprocessor
-from dsg.baseline.baseline_model import Baseline
+from dsg.classifier.classifier_preprocessing import BaselinePreprocessor
+from dsg.classifier.classifier import Classier
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
 
 """ General Parameters """
-parser.add_argument('--train_samples', type=int, default=10000, 
+parser.add_argument('--train_samples', type=int, default=600, 
 	help='number of training examples.')
 parser.add_argument('--test_samples', type=int, default=100, 
 	help='number of test examples.')
 parser.add_argument('--val_samples', type=int, default=100, 
 	help='number of validation examples.')
 args = parser.parse_args()
-
-MAX_VALUE = 29266
 
 def create_submission_file(loader, preprocessor, model):
 	test = loader.load_challenge_data()
@@ -50,31 +48,26 @@ def main():
 		test_samples=args.test_samples,
 		val_samples=args.val_samples
 		)
-	X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(df)
+	train, test, val, df = preprocessor.fit_transform(df)
 
 	preproc_time = time.clock() - start
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = Baseline()
-	model.create_frequency_dictionary()
-	model.fit(X_train, y_train)
+	model = BaselineClassier()
+	model.fit(train)
 	model.print_dictionary()
-	model.save_dictionary()
-	
-	score = model.evaluate(X_test, y_test)
-	print("TEST ERROR: ", score)
 
+	# Evaluate the model
+	score = model.evaluate(test)
+	print("TEST SCORE: ", score)
+	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
-	exit()
-
 	# Fit on the entire data 
-	model.fit(X, y)
-	model.create_frequency_dictionary()
+	model.fit(X)
 	model.print_dictionary()
-	model.save_dictionary()
 	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
