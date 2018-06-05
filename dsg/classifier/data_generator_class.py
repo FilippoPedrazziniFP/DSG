@@ -1,5 +1,3 @@
-
-
 class DataGenerator(object):
 	def __init__(self):
 		super(DataGenerator, self).__init__()

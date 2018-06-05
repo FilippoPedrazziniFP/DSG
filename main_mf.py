@@ -5,8 +5,8 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.matrix_fact.mf_preprocessing import MatrixFactorizationPreprocessor
-from dsg.matrix_fact.mf import MatrixFactorization
+from dsg.recommenders.urm_preprocessing import URMPreprocessing
+from dsg.recommenders.mf import SVDRec, AsynchSVDRec
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -40,28 +40,31 @@ def main():
 	# FROM_DATE = 20170420
 
 	# Clean Trade Data
-	preprocessor = MatrixFactorizationPreprocessor(
+	preprocessor = URMPreprocessing(
 		from_date=20180101,
 		test_date=20180412,
 		val_date=20180405,
 		train_date=20180328
 		)
-	X_train, y_train, y_test, y_val, X, y = preprocessor.fit_transform(df)
+	train, test, val, data = preprocessor.fit_transform(df)
 
 	print("TRAIN")
-	print(X_train.head())
-	print(y_train.head())
+	print(train.head())
 
 	preproc_time = time.clock() - start
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = MatrixFactorization()
-	model.fit(X_train, y_train)
+	model = SVDRec()
+	model.fit(train)
+
+	# Cross Validation
+	scores = model.cross_validation(train)
+	print(scores)
 
 	# Evaluate the model
-	score = model.evaluate(y_test)
-	print("TEST SCORE: ", score)
+	# score = model.evaluate(test)
+	# print("TEST SCORE: ", score)
 	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)

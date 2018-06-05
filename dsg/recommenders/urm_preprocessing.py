@@ -1,14 +1,16 @@
+import scipy.sparse as sps
+import numpy as np
 import dsg.util as util
-from dsg.classifier.data_generator_class import DataGenerator
+from dsg.recommenders.data_generator import DataGenerator
 
-class ClassifierPreprocessor(object):
+class URMPreprocessing(object):
 	def __init__(self, from_date, test_date, 
 			val_date, train_date):
-		super(ClassifierPreprocessor, self).__init__()
-		self.from_date = from_date
-		self.test_date = test_date
+		super(URMPreprocessing, self).__init__()
 		self.val_date = val_date
+		self.from_date = from_date
 		self.train_date = train_date
+		self.test_date = test_date
 
 	def fit(self, df):
 		return
@@ -38,7 +40,7 @@ class ClassifierPreprocessor(object):
 				X_train, y_train, X_test, y_test : numpy array
 		"""
 		# Delete Holding Values
-		# df = df[df["TradeStatus"] != "Holding"]
+		df = df[df["TradeStatus"] != "Holding"]
 
 		# Drop Useless Columns
 		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
@@ -49,13 +51,15 @@ class ClassifierPreprocessor(object):
 
 		# Train, test, val split
 		data_generator = DataGenerator()
-		X_train, y_train = data_generator.generate_train_set_regression(df, self.train_date, self.val_date)
-		y_test = data_generator.generate_test_set(df, self.test_date)
-		y_val = data_generator.generate_test_set(df, self.val_date, self.test_date)
+		train = data_generator.generate_train_set_explicit(df, self.val_date)
+		test = data_generator.generate_test_set(df, self.test_date)
+		val = data_generator.generate_test_set(df, self.val_date, self.test_date)
 
 		# Entire Train
-		X, y = data_generator.generate_train_set_regression(df, self.test_date)
+		data = data_generator.generate_train_set_explicit(df)		
+		return train, test, val, data
 
-		return X_train, y_train, y_test, y_val, X, y
-
-		
+	def df_to_csr(self, df, is_binary=False, user_key='CustomerIdx', item_key='IsinIdx', rating_key='CustomerInterest'):
+	    df.set_index([user_key, item_key], inplace=True)
+	    mat = sps.csr_matrix((df[rating_key], (df.index.labels[0], df.index.labels[1])))
+	    return mat
