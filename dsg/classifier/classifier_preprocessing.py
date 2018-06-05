@@ -1,17 +1,20 @@
 import dsg.util as util
-from dsg.test_train_data_generation.fake_data_generator import DataGenerator
+from dsg.classifier.data_generator_class import DataGenerator
 
 class ClassifierPreprocessor(object):
-	def __init__(self, from_date, test_date, val_date):
+	def __init__(self, from_date, test_date, 
+			val_date, train_date):
 		super(ClassifierPreprocessor, self).__init__()
 		self.from_date = from_date
 		self.test_date = test_date
 		self.val_date = val_date
+		self.train_date = train_date
 
 	def fit(self, df):
 		return
 
 	def test_transform(self, df):
+		df = df.drop(["PredictionIdx", "DateKey", "BuySell"], axis=1)
 		X = df.values
 		return X
 
@@ -27,12 +30,6 @@ class ClassifierPreprocessor(object):
 		df['Frequency'] = df.groupby('CustomerIdx')['CustomerIdx'].transform('count')
 		df['Probability'] = df['Frequency'].apply(lambda x: x/max_frequency)
 		return df
-
-	def filter_customers(self, df, min_value):
-		df_freq = df.groupby("CustomerIdx").count()["TradeDateKey"].reset_index()
-		df_active = df_freq[df_freq["TradeDateKey"] >= min_value]
-		active_list = df_active["CustomerIdx"].values
-		return active_list
 
 	def fit_transform(self, df):
 		"""
@@ -54,19 +51,16 @@ class ClassifierPreprocessor(object):
 
 		# Train, test, val split
 		data_generator = DataGenerator()
-		train = data_generator.generate_train_dataset(df, till_date=min(self.test_date, self.val_date))
-		test = data_generator.generate_test_dataset(df, self.test_date)
-		validation = data_generator.generate_test_dataset(df, self.val_date)
+		X_train, y_train = data_generator.generate_train_set_regression(df, self.train_date, self.val_date)
+		y_test = data_generator.generate_test_set(df, self.test_date)
+		y_val = data_generator.generate_test_set(df, self.val_date, self.test_date)
 
 		# Entire Train
-		data = data_generator.generate_train_dataset(df, till_date=min(20180424, 20180424))
+		X, y = data_generator.generate_train_set_regression(df, self.test_date)
 
-		return train, test, validation, data
+		return X_train, y_train, y_test, y_val, X, y
 
 	def train_test_validation_split(self, features):
-		"""
-			The method splits the data into train/test/validation
-		"""
 		raise NotImplementedError
 
 		

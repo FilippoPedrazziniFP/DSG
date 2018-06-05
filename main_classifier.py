@@ -16,8 +16,10 @@ args = parser.parse_args()
 
 def create_submission_file(loader, preprocessor, model):
 	test = loader.load_challenge_data()
+	print(test.head())
 	X = preprocessor.test_transform(test)
-	preds = model.predict_for_submission(X)
+	print(X[0:5])
+	preds = model.predict(X)
 	submission = loader.load_submission_file()
 	submission["CustomerInterest"] = preds
 	submission.to_csv(util.SUBMISSION, index=False)
@@ -35,39 +37,39 @@ def main():
 	loader = DataLoader()
 	df = loader.load_trade_data()
 
+	FROM_DATE = 20170420
+
 	# Clean Trade Data
 	preprocessor = ClassifierPreprocessor(
 		from_date=20180101,
-		test_date=20180420,
-		val_date=20180419
+		test_date=20180412,
+		val_date=20180405,
+		train_date=20180328
 		)
-	train, test, val, data = preprocessor.fit_transform(df)
+	X_train, y_train, y_test, y_val, X, y = preprocessor.fit_transform(df)
 
 	print("TRAIN")
-	print(train.head(3))
-
-	print("TEST")
-	print(test.head(3))
-
-	print("VALIDATION")
-	print(val.head(3))
+	print(X_train.head())
+	print(y_train.head())
 
 	preproc_time = time.clock() - start
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
 	model = Classifier()
-	model.fit(train)
+	model.fit(X_train, y_train)
 
 	# Evaluate the model
-	score = model.evaluate(test)
+	score = model.evaluate(y_test)
 	print("TEST SCORE: ", score)
 	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
+	exit()
+
 	# Fit on the entire data 
-	model.fit(data)
+	model.fit(X, y)
 	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
