@@ -12,8 +12,7 @@ class DataGenerator(object):
 
 		# Group By Customer and Bond to have the sum of interests during the period.
 		label = label.groupby(["CustomerIdx", "IsinIdx"]).count()["CustomerInterest"].reset_index(level=['CustomerIdx', 'IsinIdx'])		
-		features = df[df["TradeDateKey"] <= from_date]
-		
+		features = df[df["TradeDateKey"] <= from_date]		
 		return features, label
 
 	def generate_train_set_classification(self, df, from_date, to_date=None):

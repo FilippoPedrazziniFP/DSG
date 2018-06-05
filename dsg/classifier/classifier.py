@@ -8,6 +8,7 @@ from collections import defaultdict
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from dsg.data_loader import DataLoader
 from sklearn.preprocessing import StandardScaler
+from dsg.visualizer import Explorer
 
 class Classifier(object):
 	def __init__(self):
@@ -150,6 +151,24 @@ class Classifier(object):
 		self.scaler.fit(X_train)
 		X_train = self.scaler.transform(X_train)
 
+		# Plot Distribution of Labels
+		# Explorer.plot_array(y_train)
+		print(y_train.mean())
+		print(y_train.std())
+		print(y_train.max())
+
+		# Clipping y_train
+		y_train = np.clip(y_train, 0, 5)
+
+		# Normalize Labels
+		y_train = y_train/y_train.max()
+
+		# From Continuos Values to Binary Classification
+		"""
+			From regression to classification.
+		"""
+
+		# Fit the model
 		model = LinearRegression()
 		model.fit(X_train, y_train)
 		return model
@@ -197,13 +216,12 @@ class Classifier(object):
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)
 			pred = self.classifier.predict(features)[0]
-			"""
-				Classification:
-					pred = self.classifier.predict_proba(features)[0][0]
-			"""
+			# pred = self.classifier.predict_proba(features)[0][0]
 			predictions.append(pred)
 		predictions = np.array(predictions)
-		predictions = predictions/predictions.max()
+		print(predictions.max())
+		print(predictions[0:10])
+		predictions = np.clip(predictions, 0, 1)
 		return predictions
 
 	def evaluate(self, y_test_df):

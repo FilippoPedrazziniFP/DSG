@@ -43,6 +43,10 @@ class ClassifierPreprocessor(object):
 			@return
 				X_train, y_train, X_test, y_test : numpy array
 		"""
+		# Delete Holding Values
+		# df = df[df["TradeStatus"] != "Holding"]
+
+		# Drop Useless Columns
 		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
 		df = df.sort_values("TradeDateKey", ascending=True)
 
