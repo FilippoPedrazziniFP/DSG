@@ -1,14 +1,9 @@
 import dsg.util as util
 from dsg.classifier.data_generator_class import DataGenerator
 
-class ClassifierPreprocessor(object):
-	def __init__(self, from_date, test_date, 
-			val_date, train_date):
-		super(ClassifierPreprocessor, self).__init__()
-		self.from_date = from_date
-		self.test_date = test_date
-		self.val_date = val_date
-		self.train_date = train_date
+class MatrixFactorizationPreprocessor(object):
+	def __init__(self):
+		super(MatrixFactorizationPreprocessor, self).__init__()
 
 	def fit(self, df):
 		return
@@ -38,7 +33,7 @@ class ClassifierPreprocessor(object):
 				X_train, y_train, X_test, y_test : numpy array
 		"""
 		# Delete Holding Values
-		# df = df[df["TradeStatus"] != "Holding"]
+		df = df[df["TradeStatus"] != "Holding"]
 
 		# Drop Useless Columns
 		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
@@ -56,9 +51,36 @@ class ClassifierPreprocessor(object):
 		# Entire Train
 		X, y = data_generator.generate_train_set_regression(df, self.test_date)
 
+		
+		
+
 		return X_train, y_train, y_test, y_val, X, y
+
+	def create_ur_matrix(self, df):
+		"""
+			The method creates a user rating matrix starting from
+			a Data Frame object.
+		"""
+
+
+
+
+
+		return
+
+	def df_to_csr(df, nrows, ncols, is_binary=False, user_key='CustomerIdx', item_key='IsinIdx', rating_key='CustomerInterest'):
+	    """
+	    Convert a pandas DataFrame to a scipy.sparse.csr_matrix
+	    """
+	    rows = df[user_key].values
+	    columns = df[item_key].values
+	    ratings = df[rating_key].values if not is_binary else np.ones(df.shape[0])
+	    # use floats by default
+	    ratings = ratings.astype(np.float32)
+	    shape = (nrows, ncols)
+	    # using the 4th constructor of csr_matrix
+	    # reference: https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html
+	    return sps.csr_matrix((ratings, (rows, columns)), shape=shape)
 
 	def train_test_validation_split(self, features):
 		raise NotImplementedError
-
-		
