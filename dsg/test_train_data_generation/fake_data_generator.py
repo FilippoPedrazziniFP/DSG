@@ -11,150 +11,181 @@ class DataGenerator(object):
     def hash(self, row):
         return hashlib.md5((str(row["CustomerIdx"]) + str(row["IsinIdx"]) + row["BuySell"]).encode()).hexdigest()
 
-    def generate_test_dataset(self, df, day, imb_perc = 0.015, consider_holding_1 = False):
+    def generate_train_dataset(self, trade_df, from_day=20171008, till_day=20180405, out_rows=None, imb_perc=None,
+                               remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True):
 
-        trade = df
+        trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
 
-        # Select the transactions to use in the test set
-        trades_on_eval_day = trade[trade["TradeDateKey"] == day]
-
-        trades_on_eval_day = trades_on_eval_day[trades_on_eval_day["CustomerInterest"] == 1]
-
-        real_interactions = trades_on_eval_day[["CustomerIdx", "IsinIdx", "BuySell", "CustomerInterest"]]
-
-        if consider_holding_1:
-            real_interactions["CustomerInterest"] = 1
-
-        # Calculate how many rows to add
-        positive_samples = real_interactions[real_interactions["CustomerInterest"] == 1].shape[0]
-        out_rows = int(positive_samples / imb_perc)
-        rows_to_add = out_rows - real_interactions.shape[0]
+        trade_df = self.remove_columns(trade_df, remove_holding, remove_not_eur, remove_price, remove_trade_status)
 
 
-        # get how many trades have been done in the considered period
-        tot_trades = trade.shape[0]
 
-        # Generate the CustomerIdx column for the added interactions
-        trades_per_cust = trade.groupby(["CustomerIdx"]).size().reset_index(name='counts')
-        count = trades_per_cust["counts"].as_matrix().flatten()
-        cust_idx = trades_per_cust["CustomerIdx"].as_matrix().flatten()
+        if from_day is not None:
+            trade_df = trade_df[trade_df["DateKey"] >= from_day]
+        if till_day is not None:
+            trade_df = trade_df[trade_df["DateKey"] <= till_day]
+
+        negative_samples_distribution = trade_df
+        positive_samples = trade_df
+
+        rows_to_add = self.get_rows_to_add(imb_perc, out_rows, positive_samples)
+
+        if rows_to_add <= 0:
+            return positive_samples
+
+
+        tot_trades = trade_df.shape[0]
+        trades_per_day = trade_df.groupby(["DateKey"]).size().reset_index(name='counts')
+        count = trades_per_day["counts"].as_matrix().flatten()
+        days = trades_per_day["DateKey"].as_matrix().flatten()
         probability_of_being_chosen = np.divide(count, tot_trades)
 
-        fake_cust = np.random.choice(cust_idx, rows_to_add, p=probability_of_being_chosen)
+        negative_samples = pd.DataFrame()
 
-        # Generate the Isin column for the added interactions
-        trades_per_bond = trade.groupby(["IsinIdx"]).size().reset_index(name='counts')
-        count = trades_per_bond["counts"].as_matrix().flatten()
-        bond_idx = trades_per_bond["IsinIdx"].as_matrix().flatten()
-        probability = np.divide(count, tot_trades)
+        while negative_samples.shape[0] < rows_to_add:
+            still_to_add = int((rows_to_add - negative_samples.shape[0]))
 
-        fake_bond = np.random.choice(bond_idx, rows_to_add, p=probability)
-
-        # Generate the BuySell column for the added interactions
-        fake_buy_sell = np.random.choice(["Buy", "Sell"], rows_to_add)
-
-        # Zip them in one single data frame
-        fake_interactions = pd.DataFrame(data=np.matrix([fake_cust, fake_bond, fake_buy_sell]).T,
-                                         columns=["CustomerIdx", "IsinIdx", "BuySell"],
-                                         index=np.arange(fake_cust.shape[0]))
-        fake_interactions["CustomerInterest"] = 0
-
-
-
-        # Merge ral and fake in one dataset
-        test_set = real_interactions.append(fake_interactions)
-
-
-        test_set["DateKey"] = day
-
-        test_set["PredictionIdx"] = test_set.apply(self.hash, axis=1)
-
-        # Eliminate duplicates, some duplicates exists because the same customer
-        # buys/sells the same bond on the same day
-        test_set = test_set[~test_set.duplicated(["PredictionIdx"])]
-
-        # Sort by hashvalue
-        test_set = test_set.sort_values("PredictionIdx")
-
-        return test_set
-
-
-    def subsample_negatives(self, df, num_samples):
-        pos = df[df["CustomerInterest"] == 1]
-        neg = df[df["CustomerInterest"] == 0]
-        neg = neg.sample(num_samples)
-
-        return pos.append(neg)
-
-    def generate_train_dataset(self, df, till_date, consider_holding_1 = False, remove_holding=False):
-        trade = df
-
-        # Select the transactions to use in the test set
-        trades_to_use = trade[trade["TradeDateKey"] < till_date]
-
-        real_interactions = trades_to_use[["CustomerIdx", "IsinIdx", "BuySell", "CustomerInterest", "TradeDateKey"]]
-
-        if consider_holding_1:
-            real_interactions["CustomerInterest"] = 1
-            rows_to_add = trades_to_use.shape[0]
-
-        else:
-            positive_samples = real_interactions[real_interactions["CustomerInterest"] == 1].shape[0]
-            negative_samples = real_interactions.shape[0] - positive_samples
-
-            if not remove_holding:
-                if negative_samples > positive_samples:
-                    real_interactions = self.subsample_negatives(real_interactions, positive_samples)
-                    rows_to_add = 0
-                else:
-                    rows_to_add = positive_samples - negative_samples
+            if still_to_add >= negative_samples_distribution.shape[0]:
+                random_interactions = negative_samples_distribution
             else:
-                rows_to_add = positive_samples
-                real_interactions = real_interactions[real_interactions["CustomerInterest"] == 1]
+                random_interactions = negative_samples_distribution.sample(still_to_add)
+
+            sampled_days = np.random.choice(days, still_to_add, p=probability_of_being_chosen)
+            random_interactions = random_interactions.drop(columns=["DateKey"])
+            random_interactions = random_interactions.assign(DateKey=sampled_days)
+
+            random_interactions = self.exclude(random_interactions,
+                                               positive_samples,
+                                               columns=["CustomerIdx", "IsinIdx", "BuySell", "DateKey"])
+
+            negative_samples = negative_samples.append(random_interactions)
+
+        negative_samples["CustomerInterest"] = 0
+
+        merged = positive_samples.append(negative_samples)
+
+        shuffled = shuffle(merged).reset_index(drop=True)
+
+        return shuffled
+
+    def generate_test_dataset(self, trade_df, from_day=20180414, till_day=20180420, out_rows=500000, imb_perc=None,
+                              remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True,
+                              set_date=20180416, months_of_trades=6):
+
+        trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
+
+        trade_df = self.remove_columns(trade_df, remove_holding, remove_not_eur, remove_price, remove_trade_status)
+
+        positive_samples = trade_df
+
+        if from_day is not None:
+            positive_samples = positive_samples[positive_samples["DateKey"] >= from_day]
+
+        if till_day is not None:
+            positive_samples = positive_samples[positive_samples["DateKey"] <= till_day]
+
+        positive_samples["DateKey"] = set_date
+
+        rows_to_add = self.get_rows_to_add(imb_perc, out_rows, positive_samples)
+
+        if rows_to_add <= 0:
+            return positive_samples
+
+        # sample the negative samples from the previous months
+        months_before_from_day = self.monthsbefore(from_day, months_of_trades)
+        negative_samples_distribution = trade_df[trade_df["DateKey"] >= months_before_from_day]
+        negative_samples_distribution = negative_samples_distribution[negative_samples_distribution["DateKey"] <= from_day]
 
 
-        if rows_to_add > 0:
-            # get how many trades have been done in the considered period
-            tot_trades = trades_to_use.shape[0]
+        negative_samples = pd.DataFrame()
 
-            # Generate the CustomerIdx column for the added interactions
-            trades_per_cust = trades_to_use.groupby(["CustomerIdx"]).size().reset_index(name='counts')
-            count = trades_per_cust["counts"].as_matrix().flatten()
-            cust_idx = trades_per_cust["CustomerIdx"].as_matrix().flatten()
-            probability_of_being_chosen = np.divide(count, tot_trades)
+        while negative_samples.shape[0] < rows_to_add:
+            still_to_add = int((rows_to_add - negative_samples.shape[0]))
+            random_interactions = negative_samples_distribution.sample(still_to_add)
 
-            fake_cust = np.random.choice(cust_idx, rows_to_add, p=probability_of_being_chosen)
+            random_interactions["DateKey"] = set_date
 
-            # Generate the Isin column for the added interactions
-            trades_per_bond = trades_to_use.groupby(["IsinIdx"]).size().reset_index(name='counts')
-            count = trades_per_bond["counts"].as_matrix().flatten()
-            bond_idx = trades_per_bond["IsinIdx"].as_matrix().flatten()
-            probability = np.divide(count, tot_trades)
+            random_interactions = self.exclude(random_interactions,
+                                               positive_samples,
+                                               columns=["CustomerIdx", "IsinIdx", "BuySell", "DateKey"])
 
-            fake_bond = np.random.choice(bond_idx, rows_to_add, p=probability)
+            negative_samples = negative_samples.append(random_interactions)
 
-            # Generate the BuySell column for the added interactions
-            fake_buy_sell = np.random.choice(["Buy", "Sell"], rows_to_add)
+        negative_samples["CustomerInterest"] = 0
 
-            # Zip them in one single data frame
-            fake_interactions = pd.DataFrame(data=np.matrix([fake_cust, fake_bond, fake_buy_sell]).T,
-                                             columns=["CustomerIdx", "IsinIdx", "BuySell"],
-                                             index=np.arange(fake_cust.shape[0]))
-            fake_interactions["CustomerInterest"] = 0
+        merged = positive_samples.append(negative_samples)
 
+        shuffled = shuffle(merged).reset_index(drop=True)
 
-            fake_interactions["TradeDateKey"] = trades_to_use["TradeDateKey"].copy()
+        return shuffled
 
-            # Merge real and fake in one dataset
-            train_set = real_interactions.append(fake_interactions)
-
+    def get_rows_to_add(self, imb_perc, out_rows, positive_samples):
+        if out_rows is None:
+            if imb_perc is None:
+                rows_to_add = positive_samples.shape[0]
+            else:
+                rows_to_add = int((positive_samples.shape[0] / imb_perc) * (1 - imb_perc))
         else:
-            train_set = real_interactions
+            rows_to_add = out_rows - positive_samples.shape[0]
+        return rows_to_add
 
-        # Eliminate duplicates, some duplicates exists because the same customer
-        # buys/sells the same bond on the same day
-        train_set = train_set[~train_set.duplicated(["CustomerIdx", "IsinIdx", "BuySell", "TradeDateKey"])]
 
-        train_set = shuffle(train_set, random_state = 0)
+    def generate_submission_dataset(self, trade_df, from_day=20171022, till_day=None, out_rows=None, imb_perc=None,
+                               remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True,):
 
-        return train_set
+        return self.generate_train_dataset(trade_df, from_day, till_day, out_rows, imb_perc,
+                                     remove_holding, remove_price, remove_not_eur, remove_trade_status)
+
+    def generate_validation_dataset(self, trade_df, from_day=20180407, till_day=20180413, out_rows=500000,
+                                    imb_perc=None,
+                                    remove_holding=True, remove_price=True, remove_not_eur=True,
+                                    remove_trade_status=True,
+                                    set_date=20180409, months_of_trades=6):
+
+        return self.generate_test_dataset(trade_df, from_day, till_day, out_rows, imb_perc,
+                                     remove_holding, remove_price, remove_not_eur, remove_trade_status, set_date,
+                                     months_of_trades)
+
+    def remove_columns(self, trade_df, remove_holding=True, remove_not_eur=True, remove_price=True,
+                       remove_trade_status=True):
+
+        if remove_price and "Price" in trade_df.columns:
+            trade_df = trade_df.drop(columns=["Price"])
+        if remove_not_eur and "NotionalEUR" in trade_df.columns:
+            trade_df = trade_df.drop(columns=["NotionalEUR"])
+        if remove_holding and "TradeStatus" in trade_df.columns:
+            trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]
+        if remove_trade_status and "TradeStatus" in trade_df.columns:
+            trade_df = trade_df.drop(columns=["TradeStatus"])
+
+        return trade_df
+
+    def exclude(self, df1, df2, columns=None):
+        if columns is None:
+            return df1[~df1.isin(df2).all(1)]
+        else:
+            return df1[~df1[columns].isin(df2[columns]).all(1)]
+
+    def monthsbefore(self, from_day, months_to_remove):
+        year = int(str(from_day)[:4])
+        month = int(str(from_day)[4:6])
+        day = int(str(from_day)[6:])
+
+        min_years = int(months_to_remove / 12)
+        year -= min_years
+        months_to_remove = months_to_remove % 12
+        if month <= months_to_remove:
+            year -= 1
+            month = 12 - months_to_remove + month
+        else:
+            month -= months_to_remove
+
+        return int(str(year) + "{0:02d}".format(month) + "{0:02d}".format(day))
+
+
+trade_df = pd.read_csv("C:\\Users\CARCIDI\PycharmProjects\DataScienceCompetition\data\Trade.csv")
+test = DataGenerator().generate_test_dataset(trade_df)
+train = DataGenerator().generate_train_dataset(trade_df)
+validation = DataGenerator().generate_validation_dataset(trade_df)
+print("generating dataset submisison")
+sub = DataGenerator().generate_submission_dataset(trade_df)
