@@ -10,9 +10,10 @@ from dsg.data_loader import DataLoader
 from sklearn.preprocessing import StandardScaler
 from dsg.visualizer import Explorer
 
-class Classifier(object):
-	def __init__(self):
-		super(Classifier, self).__init__()
+class Regressor(object):
+	def __init__(self, max_rating=5):
+		super(Regressor, self).__init__()
+		self.max_rating = max_rating
 
 	def create_cus_bond_freq_dictionary(self, df):
 		"""
@@ -105,6 +106,7 @@ class Classifier(object):
 
 		# Train Classifier
 		self.classifier = self.train_classifier(X, y)
+
 		return
 
 	def create_set(self, df):
@@ -153,20 +155,15 @@ class Classifier(object):
 
 		# Plot Distribution of Labels
 		# Explorer.plot_array(y_train)
-		print(y_train.mean())
-		print(y_train.std())
-		print(y_train.max())
+		# print(y_train.mean())
+		# print(y_train.std())
+		# print(y_train.max())
 
 		# Clipping y_train
-		y_train = np.clip(y_train, 0, 5)
+		y_train = np.clip(y_train, 0, self.max_rating)
 
 		# Normalize Labels
 		y_train = y_train/y_train.max()
-
-		# From Continuos Values to Binary Classification
-		"""
-			From regression to classification.
-		"""
 
 		# Fit the model
 		model = LinearRegression()
@@ -216,7 +213,6 @@ class Classifier(object):
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)
 			pred = self.classifier.predict(features)[0]
-			# pred = self.classifier.predict_proba(features)[0][0]
 			predictions.append(pred)
 		predictions = np.array(predictions)
 		print(predictions.max())
@@ -234,4 +230,35 @@ class Classifier(object):
 		labels = test_df["CustomerInterest"]
 		features = test_df.drop(["CustomerInterest"], axis=1)
 		return features.values, labels.values
+
+	def predict_baseline(self, X):
+		predictions = []
+		for sample in X:
+			features = 0
+			
+			try: 
+				cust_features = self.customer_dictionary[sample[0]]
+			except KeyError:
+				cust_features = 0
+			
+			features = features + cust_features
+
+			try:
+				bond_features = self.bond_dictionary[sample[1]]
+			except KeyError:
+				bond_features = 0
+
+			features = features + bond_features
+
+			try:
+				cus_bond_features = self.cus_bond_dictionary[(sample[0], sample[1])]
+			except KeyError:
+				cus_bond_features = 0
+			
+			features = features + cus_bond_features
+			pred = features
+			predictions.append(pred)
+		predictions = np.array(predictions)
+		predictions = predictions/predictions.max()
+		return predictions
 		

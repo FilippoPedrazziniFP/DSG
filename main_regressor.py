@@ -5,8 +5,8 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.recommenders.urm_preprocessing import URMPreprocessing
-from dsg.recommenders.mf import SVDRec, AsynchSVDRec
+from dsg.regressor.regressor_preprocessing import RegressorPreprocessor
+from dsg.regressor.regressor import Regressor
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -37,30 +37,25 @@ def main():
 	loader = DataLoader()
 	df = loader.load_trade_data()
 
-	# FROM_DATE = 20170420
-
 	# Clean Trade Data
-	preprocessor = URMPreprocessing(
+	preprocessor = RegressorPreprocessor(
 		from_date=20180101,
 		test_date=20180412,
 		val_date=20180405,
 		train_date=20180328
 		)
-	train, test, val, data = preprocessor.fit_transform(df)
+	X_train, y_train, X, y = preprocessor.fit_transform(df)
 
 	print("TRAIN")
-	print(train.head())
+	print(X_train.head())
+	print(y_train.head())
 
 	preproc_time = time.clock() - start
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = SVDRec()
-	model.fit(train)
-
-	# Cross Validation
-	scores = model.cross_validation(train)
-	print(scores)
+	model = Regressor()
+	model.fit(X_train, y_train)
 
 	# Evaluate the model
 	# score = model.evaluate(test)

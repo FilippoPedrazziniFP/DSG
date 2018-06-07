@@ -1,10 +1,10 @@
 import dsg.util as util
-from dsg.classifier.data_generator_class import DataGenerator
+from dsg.regressor.data_generator import DataGenerator
 
-class ClassifierPreprocessor(object):
+class RegressorPreprocessor(object):
 	def __init__(self, from_date, test_date, 
 			val_date, train_date):
-		super(ClassifierPreprocessor, self).__init__()
+		super(RegressorPreprocessor, self).__init__()
 		self.from_date = from_date
 		self.test_date = test_date
 		self.val_date = val_date
@@ -38,7 +38,7 @@ class ClassifierPreprocessor(object):
 				X_train, y_train, X_test, y_test : numpy array
 		"""
 		# Delete Holding Values
-		# df = df[df["TradeStatus"] != "Holding"]
+		df = df[df["TradeStatus"] != "Holding"]
 
 		# Drop Useless Columns
 		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
@@ -49,13 +49,15 @@ class ClassifierPreprocessor(object):
 
 		# Train, test, val split
 		data_generator = DataGenerator()
-		X_train, y_train = data_generator.generate_train_set_regression(df, self.train_date, self.val_date)
-		y_test = data_generator.generate_test_set(df, self.test_date)
-		y_val = data_generator.generate_test_set(df, self.val_date, self.test_date)
+		X_train, y_train = data_generator.generate_train_set(df, self.train_date, self.val_date)
+		
+		# Generate Test Set
+		# y_test = data_generator.generate_test_set_claudio(df)
+		# print(y_test.head())
 
 		# Entire Train
-		X, y = data_generator.generate_train_set_regression(df, self.test_date)
+		X, y = data_generator.generate_train_set(df, self.test_date)
 
-		return X_train, y_train, y_test, y_val, X, y
+		return X_train, y_train, X, y
 
 		

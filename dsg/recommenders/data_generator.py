@@ -1,7 +1,8 @@
 
 class DataGenerator(object):
-	def __init__(self):
+	def __init__(self, max_rating=1):
 		super(DataGenerator, self).__init__()
+		self.max_rating = max_rating
 
 	def generate_train_set_explicit(self, df, to_date=None):
 		if to_date is None:
@@ -11,17 +12,7 @@ class DataGenerator(object):
 		# Group By Customer and Bond to have the sum of interests during the period.
 		data = data.groupby(["CustomerIdx", "IsinIdx"]).count()["CustomerInterest"].reset_index(level=['CustomerIdx', 'IsinIdx'])
 		# Clip to a maximum of 5 Interactions
-		data["CustomerInterest"] = data["CustomerInterest"].apply(lambda x: 5 if x > 5 else x)				
-		return data
-
-	def generate_train_set_implicit(self, df, to_date=None):
-		if to_date is None:
-			data = df
-		else:
-			data = df[df["TradeDateKey"] <= to_date]
-		# Get Implicit ratings taking just the most recent interaction
-		data = data.groupby(["CustomerIdx", "IsinIdx"]).count()["CustomerInterest"].reset_index(level=['CustomerIdx', 'IsinIdx'])	
-		data["CustomerInterest"] = data["CustomerInterest"].apply(lambda x: 1)
+		data["CustomerInterest"] = data["CustomerInterest"].apply(lambda x: self.max_rating if x > self.max_rating else x)				
 		return data
 
 	def generate_test_set(self, df, from_date, to_date=None):
