@@ -5,8 +5,8 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.recommenders.urm_preprocessing import URMPreprocessing
-from dsg.recommenders.collaborative import SVDRec, AsynchSVDRec, SimpleKNN, NMFAlgo, Slope, BaselineKNN, Clustering
+from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
+from dsg.classification.classifier import Classifier
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -38,17 +38,18 @@ def main():
 	df = loader.load_trade_data()
 
 	# Clean Trade Data
-	preprocessor = URMPreprocessing(
-		from_date=20180101,
+	preprocessor = ClassifierPreprocessor(
 		test_date=20180412,
 		val_date=20180405,
 		train_date=20180328
 		)
-	train, test, val, data = preprocessor.fit_transform(df)
+	X_train, y_train, test, val, X, y = preprocessor.fit_transform(df)
 
 	print("TRAIN")
-	print(train.head())
-	print(train.describe())
+	print(X_train.head())
+	print(X_train.describe())
+	print(y_train.head())
+	print(y_train.describe())
 	print("TEST")
 	print(test.head())
 	print(test.describe())
@@ -57,17 +58,8 @@ def main():
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = SVDRec()
-	model.fit(train)
-
-	print("TRAINING FINISHED; STARTING VALIDATION..")
-
-	# Cross Validation
-	# scores = model.cross_validation(train)
-	# print(scores)
-
-	# Model Tuning
-	# model.tune(train)
+	model = Classifier()
+	model.fit(X_train, y_train)
 
 	# Evaluate the model
 	score = model.evaluate(test)
@@ -79,7 +71,7 @@ def main():
 	exit()
 
 	# Fit on the entire data 
-	model.fit(data)
+	model.fit(X, y)
 	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)

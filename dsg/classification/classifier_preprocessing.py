@@ -1,11 +1,10 @@
 import dsg.util as util
 from dsg.data_generation.data_generator import FakeGeneratorFilo
 
-class RegressorPreprocessor(object):
-	def __init__(self, from_date, test_date, 
+class ClassifierPreprocessor(object):
+	def __init__(self, test_date, 
 			val_date, train_date):
-		super(RegressorPreprocessor, self).__init__()
-		self.from_date = from_date
+		super(ClassifierPreprocessor, self).__init__()
 		self.test_date = test_date
 		self.val_date = val_date
 		self.train_date = train_date
@@ -21,10 +20,6 @@ class RegressorPreprocessor(object):
 	def transform(self, df):
 		return
 
-	def filter_data(self, df, date):
-		df = df[df["TradeDateKey"] >= date]
-		return df
-
 	def fit_transform(self, df):
 		"""
 			The method drops the useless columns from
@@ -37,19 +32,16 @@ class RegressorPreprocessor(object):
 			@return
 				X_train, y_train, X_test, y_test : numpy array
 		"""
-		# Delete Holding Values
-		df = df[df["TradeStatus"] != "Holding"]
-
-		# Drop Useless Columns
-		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
-		df = df.sort_values("TradeDateKey", ascending=True)
-
-		# Filter Data
-		df_filtered = self.filter_data(df, self.from_date)
 
 		# Train, test, val split
 		data_generator = FakeGeneratorFilo()
-		X_train, y_train = data_generator.generate_train_set_linear(df_filtered, self.train_date, self.val_date)
+		
+		# Train Data
+		X_train, y_train = data_generator.generate_train_set_classification(
+			df=df, 
+			from_date=self.train_date, 
+			to_date=self.val_date
+			)
 		
 		# Generate Test Set
 		test = data_generator.generate_test_set(
@@ -63,7 +55,10 @@ class RegressorPreprocessor(object):
 			)
 		
 		# Entire Train
-		X, y = data_generator.generate_train_set_linear(df, self.test_date)
+		X, y = data_generator.generate_train_set_classification(
+			df=df,
+			from_date=self.test_date)
 
 		return X_train, y_train, test, val, X, y
+
 		

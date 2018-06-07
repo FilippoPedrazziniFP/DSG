@@ -8,7 +8,7 @@ from sklearn.metrics import roc_auc_score
 from surprise.model_selection import GridSearchCV
 
 class CollaborativeFiltering(Recommender):
-	def __init__(self, max_rating=1):
+	def __init__(self, max_rating=5):
 		super(CollaborativeFiltering, self).__init__()
 		self.reader = Reader(rating_scale=(1, max_rating))
 
@@ -42,7 +42,7 @@ class CollaborativeFiltering(Recommender):
 		X_test, y_test = self.features_labels_split_df(test)
 		y_pred = self.predict(X_test)
 		score = roc_auc_score(y_test, list(y_pred))
-		return
+		return score
 
 class SimpleKNN(CollaborativeFiltering):
 	def __init__(self):

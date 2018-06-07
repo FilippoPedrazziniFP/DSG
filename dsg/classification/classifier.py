@@ -10,9 +10,9 @@ from dsg.data_loader import DataLoader
 from sklearn.preprocessing import StandardScaler
 from dsg.visualizer import Explorer
 
-class Regressor(object):
+class Classifier(object):
 	def __init__(self, max_rating=5):
-		super(Regressor, self).__init__()
+		super(Classifier, self).__init__()
 		self.max_rating = max_rating
 
 	def create_cus_bond_freq_dictionary(self, df):
@@ -159,14 +159,8 @@ class Regressor(object):
 		# print(y_train.std())
 		# print(y_train.max())
 
-		# Clipping y_train
-		y_train = np.clip(y_train, 0, self.max_rating)
-
-		# Normalize Labels
-		# y_train = y_train/y_train.max()
-
 		# Fit the model
-		model = LinearRegression()
+		model = LogisticRegression()
 		model.fit(X_train, y_train)
 		return model
 
@@ -212,17 +206,16 @@ class Regressor(object):
 			features = np.asarray(features)
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)
-			pred = self.classifier.predict(features)[0]
+			pred = self.classifier.predict_proba(features)[0][0]
 			predictions.append(pred)
 		predictions = np.array(predictions)
 		print(predictions.max())
 		print(predictions[0:10])
-		predictions = predictions/predictions.max()
 		return predictions
 
 	def evaluate(self, y_test_df):
 		X_test, y_test = self.features_labels_split_df(y_test_df)
-		y_pred = self.predict_first_baseline(X_test)
+		y_pred = self.predict(X_test)
 		score = roc_auc_score(y_test, list(y_pred))
 		return score
 
@@ -261,15 +254,4 @@ class Regressor(object):
 		predictions = np.array(predictions)
 		predictions = predictions/predictions.max()
 		return predictions
-
-	def predict_first_baseline(self, X):
-		predictions = []
-		for sample in X:			
-			try: 
-				pred = self.customer_dictionary[sample[0]]
-			except KeyError:
-				pred = 0
-			predictions.append(pred)
-		predictions = np.array(predictions)
-		predictions = predictions/predictions.max()
-		return predictions
+		

@@ -44,11 +44,14 @@ def main():
 		val_date=20180405,
 		train_date=20180328
 		)
-	X_train, y_train, X, y = preprocessor.fit_transform(df)
+	X_train, y_train, test, val, X, y = preprocessor.fit_transform(df)
 
 	print("TRAIN")
 	print(X_train.head())
 	print(y_train.head())
+	print("TEST")
+	print(test.head())
+	print(test.describe())
 
 	preproc_time = time.clock() - start
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
@@ -58,8 +61,8 @@ def main():
 	model.fit(X_train, y_train)
 
 	# Evaluate the model
-	# score = model.evaluate(test)
-	# print("TEST SCORE: ", score)
+	score = model.evaluate(test)
+	print("TEST SCORE: ", score)
 	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)

@@ -1,7 +1,7 @@
 import scipy.sparse as sps
 import numpy as np
 import dsg.util as util
-from dsg.recommenders.data_generator import DataGenerator
+from dsg.data_generation.data_generator import FakeGeneratorFilo
 
 class URMPreprocessing(object):
 	def __init__(self, from_date, test_date, 
@@ -47,16 +47,26 @@ class URMPreprocessing(object):
 		df = df.sort_values("TradeDateKey", ascending=True)
 
 		# Filter Data 
-		df = self.filter_data(df, self.from_date)
+		df_filtered = self.filter_data(df, self.from_date)
 
 		# Train, test, val split
-		data_generator = DataGenerator()
-		train = data_generator.generate_train_set_explicit(df, self.val_date)
-		test = data_generator.generate_test_set(df, self.test_date)
-		val = data_generator.generate_test_set(df, self.val_date, self.test_date)
+		data_generator = FakeGeneratorFilo()
+		train = data_generator.generate_train_set_svd(df_filtered, self.val_date)
+
+		# Generate Test Set
+		test = data_generator.generate_test_set(
+			df=df, 
+			from_date=self.test_date
+			)
+		val = data_generator.generate_test_set(
+			df=df, 
+			from_date=self.val_date,
+			to_date=self.test_date
+			)
 
 		# Entire Train
-		data = data_generator.generate_train_set_explicit(df)		
+		data = data_generator.generate_train_set_svd(df_filtered)		
+		
 		return train, test, val, data
 
 	def df_to_csr(self, df, is_binary=False, user_key='CustomerIdx', item_key='IsinIdx', rating_key='CustomerInterest'):
