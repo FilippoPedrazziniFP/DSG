@@ -40,9 +40,9 @@ def main():
 	# Clean Trade Data
 	preprocessor = RegressorPreprocessor(
 		from_date=20180101,
-		test_date=20180412,
-		val_date=20180405,
-		train_date=20180328
+		test_date=20180414,
+		val_date=20180407,
+		train_date=20180331
 		)
 	X_train, y_train, test, val, X, y = preprocessor.fit_transform(df)
 

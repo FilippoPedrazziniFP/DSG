@@ -66,7 +66,7 @@ class FakeGeneratorFilo(object):
 		return data
 
 	def generate_train_set_classification(self, df, from_date, to_date=None, 
-			from_date_label=20171008, from_date_features=20180101):
+			from_date_label=20160101, from_date_features=20180101):
 		"""
 			The method generates the training set for classification purposes.
 		"""
@@ -98,12 +98,13 @@ class FakeGeneratorFilo(object):
 		features = df[df["TradeDateKey"] >= from_date_features]
 		features = features[features["TradeDateKey"] <= from_date]
 
+		# Reorder Labels
+		labels = labels[['CustomerIdx', 'IsinIdx', 'CustomerInterest']]
+
 		return features, labels
 
 
-	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20171008):
-
-		from_date_label = 20170420
+	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20160101):
 		"""
 			The method creates a dataframe for testing purposes similar to the one 
 			of the competition. It uses the last 6 months interactions as negative labels.

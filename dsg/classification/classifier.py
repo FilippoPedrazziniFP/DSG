@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from dsg.data_loader import DataLoader
 from sklearn.preprocessing import StandardScaler
 from dsg.visualizer import Explorer
+from catboost import CatBoostClassifier
 
 class Classifier(object):
 	def __init__(self, max_rating=5):
@@ -101,6 +102,8 @@ class Classifier(object):
 		# Create Train set with the dictionaries
 		train = self.create_set(y_train_df)
 
+		print("CREATED TRAIN SET; STARTING TO FIT THE MODEL..")
+
 		# Split Features and Labels
 		X, y = self.features_labels_split(train)
 
@@ -160,7 +163,7 @@ class Classifier(object):
 		# print(y_train.max())
 
 		# Fit the model
-		model = LogisticRegression()
+		model = CatBoostClassifier(verbose=False)
 		model.fit(X_train, y_train)
 		return model
 
@@ -206,7 +209,7 @@ class Classifier(object):
 			features = np.asarray(features)
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)
-			pred = self.classifier.predict_proba(features)[0][0]
+			pred = 1 - self.classifier.predict_proba(features)[0][0]
 			predictions.append(pred)
 		predictions = np.array(predictions)
 		print(predictions.max())

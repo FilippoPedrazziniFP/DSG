@@ -68,10 +68,10 @@ def main():
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
-	exit()
+	# exit()
 
 	# Fit on the entire data 
-	model.fit(X, y)
+	# model.fit(X, y)
 	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
