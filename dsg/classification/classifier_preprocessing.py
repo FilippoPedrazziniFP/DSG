@@ -61,4 +61,7 @@ class ClassifierPreprocessor(object):
 
 		return X_train, y_train, test, val, X, y
 
+	def fit_transform_claudio(self, df):
+		return
+
 		

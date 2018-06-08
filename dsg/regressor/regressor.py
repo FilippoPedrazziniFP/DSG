@@ -1,5 +1,6 @@
 from sklearn.metrics import roc_auc_score
 import numpy as np
+import pandas as pd
 from itertools import islice
 import pickle
 import operator
@@ -14,33 +15,6 @@ class Regressor(object):
 	def __init__(self, max_rating=5):
 		super(Regressor, self).__init__()
 		self.max_rating = max_rating
-
-	def create_cus_bond_freq_dictionary(self, df):
-		"""
-			The method creates the dictionary in which each
-			key is represented by (CustomerIdx, BondIdx) and 
-			the value is the number of historical occurrences 
-			betweem the two. 
-		"""
-		dictionary = df.groupby(['CustomerIdx', 'IsinIdx']).count()['TradeDateKey'].to_dict()
-		return dictionary
-
-	def create_bond_freq_dictionary(self, df):
-		"""
-			The method creates a dictionary with 
-			BondsIdx : frequency
-		"""
-		dictionary = df.groupby('IsinIdx').count()['TradeDateKey'].to_dict()
-		return dictionary
-
-	def create_cus_freq_dictionary(self, df):
-		"""		
-			The method creates a dictionary based on the frequence
-			of interaction during the considered period.
-			CustomerIdx : Frequency
-		"""
-		dictionary = df.groupby('CustomerIdx').count()['TradeDateKey'].to_dict()
-		return dictionary
 
 	def features_labels_split(self, X):
 		"""
@@ -64,28 +38,183 @@ class Regressor(object):
 			The method creates a dictionary with
 			BondIdx : features.
 		"""
-		bidx_freq = self.create_bond_freq_dictionary(df_train)
-		return bidx_freq
+		max_date = df_train["TradeDateKey"].max()
+
+		# Number of Interactions during the period
+		num_int = df_train.groupby('IsinIdx').count()
+		num_int["NumInt"] = num_int["TradeDateKey"]
+		num_int = num_int.reset_index()
+		num_int = num_int[["IsinIdx", "NumInt"]]
+
+		# Last interactions
+		last_int = df_train.groupby('IsinIdx').max()
+		last_int["LastInt"] = last_int["TradeDateKey"].apply(lambda x: max_date - x)
+		last_int = last_int.reset_index()
+		last_int = last_int[["IsinIdx", "LastInt"]]
+
+		# First Merge
+		df = pd.merge(num_int, last_int, on=['IsinIdx'], how='left')
+
+		# Last month Interactions
+		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
+		last_month_df = last_month_df.groupby('IsinIdx').count()
+		last_month_df["LastMonthInt"] = last_month_df["TradeDateKey"]
+		last_month_df = last_month_df.reset_index()
+		last_month_df = last_month_df[["IsinIdx", "LastMonthInt"]]
+
+		# Second Merge
+		df = pd.merge(df, last_month_df, on=['IsinIdx'], how='left')
+
+		# Last Week Interactions
+		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -7]
+		last_week_df = last_week_df.groupby('IsinIdx').count()
+		last_week_df["LastWeekInt"] = last_week_df["TradeDateKey"]
+		last_week_df = last_week_df.reset_index()
+		last_week_df = last_week_df[["IsinIdx", "LastWeekInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_week_df, on=['IsinIdx'], how='left')
+
+		# Last 2 Week Interactions
+		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -15]
+		last_2_week_df = last_2_week_df.groupby('IsinIdx').count()
+		last_2_week_df["Last2WeekInt"] = last_2_week_df["TradeDateKey"]
+		last_2_week_df = last_2_week_df.reset_index()
+		last_2_week_df = last_2_week_df[["IsinIdx", "Last2WeekInt"]]
+
+		# Fourth Merge
+		df = pd.merge(df, last_2_week_df, on=['IsinIdx'], how='left')
+
+		# Last 2 Month Interactions
+		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -60]
+		last_2_month_df = last_2_month_df.groupby('IsinIdx').count()
+		last_2_month_df["Last2MonthInt"] = last_2_month_df["TradeDateKey"]
+		last_2_month_df = last_2_month_df.reset_index()
+		last_2_month_df = last_2_month_df[["IsinIdx", "Last2MonthInt"]]
+
+		# Final Merge
+		df = pd.merge(df, last_2_month_df, on=['IsinIdx'], how='left')
+
+		# Fill NAN with Zeros
+		df.fillna(0, inplace=True)
+
+		print(df.head())
+		print(df.describe())
+		
+		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"]))
+		df_dict = df.groupby("IsinIdx")["Features"].apply(list).to_dict()
+		
+		return df_dict
 
 	def create_customer_features_dict(self, df_train):
 		"""
 			The method creates a dictionary where the key 
 			represents the customer id and the value
-			is a list with 2 features 
-			[Normalized Frequency, 
-				Sum of Interest]
+			is a list with some features:
+
+			CustomerIdx : Freq, Last Int, Last Month, Last Week, 
+				Last 2 Week, Last 2 Months
 		"""
-		# Creating Customer - Frequency Dictionary 
-		cidx_freq = self.create_cus_freq_dictionary(df_train)		
-		return cidx_freq
+		max_date = df_train["TradeDateKey"].max()
+
+		# Number of Interactions during the period
+		num_int = df_train.groupby('CustomerIdx').count()
+		num_int["NumInt"] = num_int["TradeDateKey"]
+		num_int = num_int.reset_index()
+		num_int = num_int[["CustomerIdx", "NumInt"]]
+
+		# Last interactions
+		last_int = df_train.groupby('CustomerIdx').max()
+		last_int["LastInt"] = last_int["TradeDateKey"].apply(lambda x: max_date - x)
+		last_int = last_int.reset_index()
+		last_int = last_int[["CustomerIdx", "LastInt"]]
+
+		# First Merge
+		df = pd.merge(num_int, last_int, on=['CustomerIdx'], how='left')
+
+		# Last month Interactions
+		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
+		last_month_df = last_month_df.groupby('CustomerIdx').count()
+		last_month_df["LastMonthInt"] = last_month_df["TradeDateKey"]
+		last_month_df = last_month_df.reset_index()
+		last_month_df = last_month_df[["CustomerIdx", "LastMonthInt"]]
+
+		# Second Merge
+		df = pd.merge(df, last_month_df, on=['CustomerIdx'], how='left')
+
+		# Last Week Interactions
+		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -7]
+		last_week_df = last_week_df.groupby('CustomerIdx').count()
+		last_week_df["LastWeekInt"] = last_week_df["TradeDateKey"]
+		last_week_df = last_week_df.reset_index()
+		last_week_df = last_week_df[["CustomerIdx", "LastWeekInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_week_df, on=['CustomerIdx'], how='left')
+
+		# Last 2 Week Interactions
+		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -15]
+		last_2_week_df = last_2_week_df.groupby('CustomerIdx').count()
+		last_2_week_df["Last2WeekInt"] = last_2_week_df["TradeDateKey"]
+		last_2_week_df = last_2_week_df.reset_index()
+		last_2_week_df = last_2_week_df[["CustomerIdx", "Last2WeekInt"]]
+
+		# Fourth Merge
+		df = pd.merge(df, last_2_week_df, on=['CustomerIdx'], how='left')
+
+		# Last 2 Month Interactions
+		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -60]
+		last_2_month_df = last_2_month_df.groupby('CustomerIdx').count()
+		last_2_month_df["Last2MonthInt"] = last_2_month_df["TradeDateKey"]
+		last_2_month_df = last_2_month_df.reset_index()
+		last_2_month_df = last_2_month_df[["CustomerIdx", "Last2MonthInt"]]
+
+		# Final Merge
+		df = pd.merge(df, last_2_month_df, on=['CustomerIdx'], how='left')
+
+		# Fill NAN with Zeros
+		df.fillna(0, inplace=True)
+
+		print(df.head())
+		print(df.describe())
+		
+		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"]))
+		df_dict = df.groupby("CustomerIdx")["Features"].apply(list).to_dict()
+		
+		return df_dict
 
 	def create_cus_bond_features_dict(self, df_train):
 		"""
 			The method creates the dictionary with all the features related 
 			to the pair custonmer - bond.
 		"""
-		cbidx_freq = self.create_cus_bond_freq_dictionary(df_train)
-		return cbidx_freq
+		max_date = df_train["TradeDateKey"].max()
+
+		# Number of Interactions during the period
+		num_int = df_train.groupby(['CustomerIdx', 'IsinIdx']).count()
+		num_int["NumInt"] = num_int["TradeDateKey"]
+		num_int = num_int.reset_index(level=['CustomerIdx', 'IsinIdx'])
+		num_int = num_int[["CustomerIdx", 'IsinIdx', "NumInt"]]
+
+		# Last interactions
+		last_int = df_train.groupby(['CustomerIdx', 'IsinIdx']).max()
+		last_int["LastInt"] = last_int["TradeDateKey"].apply(lambda x: max_date - x)
+		last_int = last_int.reset_index(level=['CustomerIdx', 'IsinIdx'])
+		last_int = last_int[["CustomerIdx", 'IsinIdx', "LastInt"]]
+
+		# Merge
+		df = pd.merge(num_int, last_int, on=['CustomerIdx', "IsinIdx"], how='left')
+
+		# Fill NAN with Zeros
+		df.fillna(0, inplace=True)
+
+		print(df.head())
+		print(df.describe())
+		
+		df['Features'] = list(zip(df['NumInt'], df['LastInt']))
+		df_dict = df.groupby(['CustomerIdx', "IsinIdx"])["Features"].apply(list).to_dict()
+		
+		return df_dict
 
 	def fit(self, X_train_df, y_train_df):
 
@@ -100,6 +229,11 @@ class Regressor(object):
 
 		# Create Train set with the dictionaries
 		train = self.create_set(y_train_df)
+
+		print(train[0:5])
+		print(train.shape)
+
+		print("CREATED TRAIN SET; STARTING TO FIT THE MODEL..")
 
 		# Split Features and Labels
 		X, y = self.features_labels_split(train)
@@ -117,32 +251,45 @@ class Regressor(object):
 		"""
 		train = df.values
 		train_set = []
-		for sample in train:
-			row = []
-			
+		for sample in train:			
 			try:
 				customer_features = self.customer_dictionary[sample[0]]
+				customer_features = np.asarray(customer_features)
 			except KeyError:
-				customer_features = 0
-			row.append(customer_features)
+				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 			
 			try: 
 				bond_features = self.bond_dictionary[sample[1]]
+				bond_features = np.asarray(bond_features)
 			except KeyError:
-				bond_features = 0
-			row.append(bond_features)
+				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 
 			try: 
 				cus_bond_features = self.cus_bond_dictionary[(sample[0], sample[1])]
+				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
-				cus_bond_features = 0
-			row.append(cus_bond_features)
+				cus_bond_features = np.array([0.0, 100.0])
 			
 			label = sample[2]
-			row.append(label)
+			row = np.append(customer_features, bond_features)
+			row = np.append(row, cus_bond_features)
+			row = np.append(row, label)
 			train_set.append(row)
 		train_set = np.asarray(train_set)
 		return train_set
+
+	def get_max_value(self, dictionary):
+		max_value = 0
+		for k, v in dictionary.items():
+			if v > max_value:
+				max_value = v
+		return max_value
+
+	def print_dictionary(self, dictionary=None):
+		n_items = self.take(10, dictionary.items())
+		for key, val in n_items:
+			print(key, val)
+		return
 
 	def train_classifier(self, X_train, y_train):
 		"""
@@ -161,9 +308,6 @@ class Regressor(object):
 
 		# Clipping y_train
 		y_train = np.clip(y_train, 0, self.max_rating)
-
-		# Normalize Labels
-		# y_train = y_train/y_train.max()
 
 		# Fit the model
 		model = LinearRegression()
@@ -186,29 +330,26 @@ class Regressor(object):
 	def predict(self, X):
 		predictions = []
 		for sample in X:
-			features = []
+			try:
+				customer_features = self.customer_dictionary[sample[0]]
+				customer_features = np.asarray(customer_features)
+			except KeyError:
+				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 			
 			try: 
-				cust_features = self.customer_dictionary[sample[0]]
-			except KeyError:
-				cust_features = 0
-			
-			features.append(cust_features)
-
-			try:
 				bond_features = self.bond_dictionary[sample[1]]
+				bond_features = np.asarray(bond_features)
 			except KeyError:
-				bond_features = 0
+				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 
-			features.append(bond_features)
-
-			try:
+			try: 
 				cus_bond_features = self.cus_bond_dictionary[(sample[0], sample[1])]
+				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
-				cus_bond_features = 0
+				cus_bond_features = np.array([0.0, 100.0])
 			
-			features.append(cus_bond_features)
-			
+			features = np.append(customer_features, bond_features)
+			features = np.append(features, cus_bond_features)
 			features = np.asarray(features)
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)
@@ -222,7 +363,7 @@ class Regressor(object):
 
 	def evaluate(self, y_test_df):
 		X_test, y_test = self.features_labels_split_df(y_test_df)
-		y_pred = self.predict_first_baseline(X_test)
+		y_pred = self.predict(X_test)
 		score = roc_auc_score(y_test, list(y_pred))
 		return score
 

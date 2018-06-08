@@ -3,9 +3,10 @@ import numpy as np
 import hashlib
 from sklearn.utils import shuffle
 
-class FakeDataGeneratorClaudio(object):
+
+class DataGeneratorClaudio(object):
     def __init__(self):
-        super(FakeDataGeneratorClaudio, self).__init__()
+        super(DataGeneratorClaudio, self).__init__()
 
     def hash(self, row):
         return hashlib.md5((str(row["CustomerIdx"]) + str(row["IsinIdx"]) + row["BuySell"]).encode()).hexdigest()
@@ -25,7 +26,7 @@ class FakeDataGeneratorClaudio(object):
             trade_df = trade_df[trade_df["DateKey"] <= till_day]
 
         negative_samples_distribution = trade_df
-        positive_samples = trade_df
+        positive_samples = trade_df.drop_duplicates(["CustomerIdx","IsinIdx","BuySell", "DateKey"])
 
         rows_to_add = self.get_rows_to_add(imb_perc, out_rows, positive_samples)
 
@@ -42,14 +43,14 @@ class FakeDataGeneratorClaudio(object):
         negative_samples = pd.DataFrame()
 
         while negative_samples.shape[0] < rows_to_add:
-            still_to_add = int((rows_to_add - negative_samples.shape[0]))
+            still_to_add = int((rows_to_add - negative_samples.shape[0]) * 1.3)
 
             if still_to_add >= negative_samples_distribution.shape[0]:
                 random_interactions = negative_samples_distribution
             else:
                 random_interactions = negative_samples_distribution.sample(still_to_add)
 
-            sampled_days = np.random.choice(days, still_to_add, p=probability_of_being_chosen)
+            sampled_days = np.random.choice(days, random_interactions.shape[0], p=probability_of_being_chosen)
             random_interactions = random_interactions.drop(columns=["DateKey"])
             random_interactions = random_interactions.assign(DateKey=sampled_days)
 
@@ -58,7 +59,9 @@ class FakeDataGeneratorClaudio(object):
                                                columns=["CustomerIdx", "IsinIdx", "BuySell", "DateKey"])
 
             negative_samples = negative_samples.append(random_interactions)
+            negative_samples = negative_samples.drop_duplicates(["CustomerIdx","IsinIdx","BuySell","DateKey"])
 
+        negative_samples = negative_samples.sample(rows_to_add)
         negative_samples["CustomerInterest"] = 0
 
         merged = positive_samples.append(negative_samples)
@@ -69,7 +72,7 @@ class FakeDataGeneratorClaudio(object):
 
     def generate_test_dataset(self, trade_df, from_day=20180414, till_day=20180420, out_rows=500000, imb_perc=None,
                               remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True,
-                              set_date=20180416, months_of_trades=6):
+                              set_date=20180416, months_of_trades=12):
 
         trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
 
@@ -85,6 +88,7 @@ class FakeDataGeneratorClaudio(object):
 
         positive_samples["DateKey"] = set_date
 
+        positive_samples = positive_samples.drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
         rows_to_add = self.get_rows_to_add(imb_perc, out_rows, positive_samples)
 
         if rows_to_add <= 0:
@@ -99,17 +103,20 @@ class FakeDataGeneratorClaudio(object):
         negative_samples = pd.DataFrame()
 
         while negative_samples.shape[0] < rows_to_add:
-            still_to_add = int((rows_to_add - negative_samples.shape[0]))
-            random_interactions = negative_samples_distribution.sample(still_to_add)
+
+            random_interactions = negative_samples_distribution
+
 
             random_interactions["DateKey"] = set_date
 
             random_interactions = self.exclude(random_interactions,
                                                positive_samples,
-                                               columns=["CustomerIdx", "IsinIdx", "BuySell", "DateKey"])
+                                               columns=["CustomerIdx", "IsinIdx", "BuySell"])
 
             negative_samples = negative_samples.append(random_interactions)
+            negative_samples = negative_samples.drop_duplicates(["CustomerIdx", "IsinIdx", "BuySell"])
 
+        negative_samples = negative_samples.sample(rows_to_add)
         negative_samples["CustomerInterest"] = 0
 
         merged = positive_samples.append(negative_samples)
@@ -139,7 +146,7 @@ class FakeDataGeneratorClaudio(object):
                                     imb_perc=None,
                                     remove_holding=True, remove_price=True, remove_not_eur=True,
                                     remove_trade_status=True,
-                                    set_date=20180409, months_of_trades=6):
+                                    set_date=20180409, months_of_trades=12):
 
         return self.generate_test_dataset(trade_df, from_day, till_day, out_rows, imb_perc,
                                      remove_holding, remove_price, remove_not_eur, remove_trade_status, set_date,

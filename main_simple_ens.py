@@ -8,6 +8,8 @@ from dsg.data_loader import DataLoader
 from dsg.recommenders.urm_preprocessing import URMPreprocessing
 from dsg.recommenders.collaborative import SVDRec, AsynchSVDRec
 from dsg.regressor.regressor_preprocessing import RegressorPreprocessor
+from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
+from dsg.classification.classifier import CATBoost, KNN
 from dsg.regressor.regressor import Regressor
 import dsg.util as util
 
@@ -44,18 +46,15 @@ def main():
 	loader = DataLoader()
 	df = loader.load_trade_data()
 
+	###### REGRESSORS
+
 	# Clean Trade Data
 	preprocessor_urm = URMPreprocessing(
-		from_date=20180101,
-		test_date=20180412,
-		val_date=20180405,
-		train_date=20180328
+		test_date=20180416,
+		val_date=20180409,
+		train_date=20180402
 		)
 	train, test, val, data = preprocessor_urm.fit_transform(df)
-
-	# Asynch SVD
-	# model_asynch_svd = AsynchSVDRec()
-	# model_asynch_svd.fit(data)
 
 	# SVD
 	model_svd = SVDRec()
@@ -63,23 +62,36 @@ def main():
 
 	# Clean Trade Data
 	preprocessor_reg = RegressorPreprocessor(
-		from_date=20180101,
-		test_date=20180412,
-		val_date=20180405,
-		train_date=20180328
+		test_date=20180416,
+		val_date=20180409,
+		train_date=20180402
 		)
-	X_train, y_train, X, y = preprocessor_reg.fit_transform(df)
+	X_train, y_train, test, val, X, y = preprocessor_reg.fit_transform(df)
 
-	# Fit and Evaluate the model
+	# Linear Regression
 	model_reg = Regressor()
 	model_reg.fit(X, y)
-		
+
+	###### CLASSIFIERS	
+
+	# Clean Trade Data
+	preprocessor_class = ClassifierPreprocessor(
+		test_date=20180416,
+		val_date=20180409,
+		train_date=20180402
+		)
+	X_train, y_train, test, val, X, y = preprocessor_class.fit_transform(df)
+
+	# CatBoost
+	cat_model = CATBoost()
+	cat_model.fit(X, y)
+
+	# KNN
+	knn_model = KNN()
+	knn_model.fit(X, y)
+
 	# Create the submission file
-	create_submission_file(loader, preprocessor_reg, [model_reg, model_svd])
-
-	submission_time = time.clock() - fit_model
-	print("TIME TO PREDICT AND CREATE SUBMISSION FILE: ", submission_time)
-
+	create_submission_file(loader, preprocessor_reg, [model_reg, model_svd, knn_model, cat_model])
 	return
 
 main()

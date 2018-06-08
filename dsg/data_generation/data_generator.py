@@ -1,11 +1,16 @@
 import pandas as pd
-from dsg.data_generation.fake_train_test_claudio import FakeDataGeneratorClaudio
+from dsg.data_generation.fake_train_test_claudio import DataGeneratorClaudio
+
+"""
+	TODO: CLEAN CODE -- A LOT OF DUPLICATED CODE
+
+"""
 
 class FakeGeneratorFilo(object):
 	def __init__(self):
 		super(FakeGeneratorFilo, self).__init__()
 
-	def generate_train_set_linear(self, df, from_date, to_date=None):
+	def generate_train_set_linear(self, df, from_date, to_date=None, from_date_features=20180101):
 		"""	
 			The method generates the Train set for the linear model;
 			It uses 1 week as label in which CustomerInterest represents 
@@ -23,6 +28,15 @@ class FakeGeneratorFilo(object):
 				labels : DataFrame -> representing the week of trading 
 					to consider as label.
 		"""
+		# Delete Holding Values
+		df = df[df["TradeStatus"] != "Holding"]
+
+		# Drop Useless Columns
+		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
+		df = df.sort_values("TradeDateKey", ascending=True)
+
+		# From Date Features
+		df = df[df["TradeDateKey"] >= from_date_features]
 		
 		if to_date is None:
 			labels = df[df["TradeDateKey"] >= from_date]
@@ -37,7 +51,7 @@ class FakeGeneratorFilo(object):
 		
 		return features, labels
 
-	def generate_train_set_svd(self, df, to_date=None, max_rating=5):
+	def generate_train_set_svd(self, df, to_date=None, max_rating=5, from_date_features=20180101):
 		"""
 			The method generates the training data for Collaborative Filtering
 			models; CustomerInterest is clipped to a maximum value of 5; in order 
@@ -49,9 +63,20 @@ class FakeGeneratorFilo(object):
 				max_rating : int -> max rate possible
 
 			@return
-				data : DataFrame
+				features : DataFrame
+				labels : DataFrame [CustomerIdx, IsinIdx, CustomerInterest]
 			
 		"""
+		# Delete Holding Values
+		df = df[df["TradeStatus"] != "Holding"]
+
+		# Drop Useless Columns
+		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
+		df = df.sort_values("TradeDateKey", ascending=True)
+
+		# From Date Features
+		df = df[df["TradeDateKey"] >= from_date_features]
+
 		if to_date is None:
 			data = df
 		else:
@@ -103,6 +128,18 @@ class FakeGeneratorFilo(object):
 
 		return features, labels
 
+	def generate_test_val_set_claudio(self, df):
+		"""
+			The method calls Claudio class to generate Test and train.
+		"""
+		generator = DataGeneratorClaudio()
+		test = generator.generate_test_dataset(df)
+		val = generator.generate_validation_dataset(df)
+
+		test = test.drop(["DateKey", "BuySell"], axis=1)
+		val = val.drop(["DateKey", "BuySell"], axis=1)
+		return test, val
+
 
 	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20160101):
 		"""
@@ -120,6 +157,9 @@ class FakeGeneratorFilo(object):
 				test_set : DataFrame -> with 1 week of positive and negative 
 					samples from the week considered and the previous 6 months.
 		"""
+		# Delete Holding Values
+		df = df[df["TradeStatus"] != "Holding"]
+		
 		if to_date is None:
 			positive_samples = df[df["TradeDateKey"] >= from_date]
 		else:
