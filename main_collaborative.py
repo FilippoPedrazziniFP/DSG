@@ -43,7 +43,7 @@ def main():
 		val_date=20180405,
 		train_date=20180328
 		)
-	train, test, val, data = preprocessor.fit_transform(df)
+	train, test, val, data = preprocessor.fit_transform_claudio(df)
 
 	print("TRAIN")
 	print(train.head())

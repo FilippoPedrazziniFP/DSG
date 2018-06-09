@@ -210,7 +210,7 @@ class Classifier(object):
 		df = pd.merge(num_int, last_int, on=['CustomerIdx', "IsinIdx"], how='left')
 
 		# Fill NAN with Zeros
-		"""df.fillna(100, inplace=True)
+		df.fillna(100, inplace=True)
 
 		# Last month Interactions
 		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
@@ -253,12 +253,12 @@ class Classifier(object):
 		df = pd.merge(df, last_2_month_df, on=['CustomerIdx', 'IsinIdx'], how='left')
 
 		# Fill NAN with Zeros
-		df.fillna(0, inplace=True)"""
+		df.fillna(0, inplace=True)
 
 		print(df.head())
 		print(df.describe())
 		
-		df['Features'] = list(zip(df['NumInt'], df['LastInt']))
+		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"]))
 		df_dict = df.groupby(['CustomerIdx', "IsinIdx"])["Features"].apply(list).to_dict()
 		
 		return df_dict
@@ -276,6 +276,10 @@ class Classifier(object):
 
 		# Create Train set with the dictionaries
 		train = self.create_set(y_train_df)
+
+		"""
+			Save the train set into a Data Frame
+		"""
 
 		print(train[0:5])
 		print(train.shape)
@@ -315,7 +319,7 @@ class Classifier(object):
 				cus_bond_features = self.cus_bond_dictionary[(sample[0], sample[1])]
 				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
-				cus_bond_features = np.array([0.0, 100.0])
+				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 			
 			label = sample[2]
 			row = np.append(customer_features, bond_features)
@@ -360,7 +364,7 @@ class Classifier(object):
 				cus_bond_features = self.cus_bond_dictionary[(sample[0], sample[1])]
 				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
-				cus_bond_features = np.array([0.0, 100.0])
+				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 			
 			features = np.append(customer_features, bond_features)
 			features = np.append(features, cus_bond_features)

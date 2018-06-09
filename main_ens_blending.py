@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import time
 import pandas as pd
-
+from sklearn.metrics import roc_auc_score
 from dsg.data_loader import DataLoader
 from dsg.recommenders.urm_preprocessing import URMPreprocessing
 from dsg.recommenders.collaborative import SVDRec, AsynchSVDRec
@@ -42,11 +42,34 @@ def train_meta_classifier(val, models):
 	print(x.shape)
 	predictions = []
 	for model in models:
-	
+		pred = model.predict(X)
+		predictions.append(pred)
 
+	predictions = np.asarray(predictions)
+	print(predictions.shape)
+	predictions = predictions.T
+	print(predictions.shape)
 	meta_class = LogisticRegression()
 	meta_class.fit(predictions, y)
 	return meta_class
+
+def evaluate_meta_classifier(test, meta_class, models):
+	X, y = model[0].features_label_split_df(test)
+	print(X[0:5])
+	print(x.shape)
+	predictions = []
+	for model in models:
+		pred = model.predict(X)
+		predictions.append(pred)
+
+	predictions = np.asarray(predictions)
+	print(predictions.shape)
+	predictions = predictions.T
+	print(predictions.shape)
+	meta_class = LogisticRegression()
+	final_predictions = meta_class.predict(predictions)
+	score = roc_auc_score(y_test, list(final_predictions))
+	return score
 
 def main():
 
@@ -68,11 +91,11 @@ def main():
 		val_date=20180409,
 		train_date=20180402
 		)
-	train, test, val, data = preprocessor_urm.fit_transform(df)
+	train_svd, test, val, data_svd = preprocessor_urm.fit_transform(df)
 
 	# SVD
 	model_svd = SVDRec()
-	model_svd.fit(data)
+	model_svd.fit(train)
 
 	# Clean Trade Data
 	preprocessor_reg = RegressorPreprocessor(
@@ -80,11 +103,11 @@ def main():
 		val_date=20180409,
 		train_date=20180402
 		)
-	X_train, y_train, test, val, X, y = preprocessor_reg.fit_transform(df)
+	X_train_lin, y_train_lin, test, val, X_lin, y_lin = preprocessor_reg.fit_transform(df)
 
 	# Linear Regression
 	model_reg = Regressor()
-	model_reg.fit(X, y)
+	model_reg.fit(X_train_lin, y_train_lin)
 
 	###### CLASSIFIERS	
 
@@ -94,19 +117,30 @@ def main():
 		val_date=20180409,
 		train_date=20180402
 		)
-	X_train, y_train, test, val, X, y = preprocessor_class.fit_transform(df)
+	X_train_class, y_train_class, test, val, X_class, y_class = preprocessor_class.fit_transform(df)
 
 	# CatBoost
 	cat_model = CATBoost()
-	cat_model.fit(X, y)
+	cat_model.fit(X_train_class, y_train_class)
 
 	# KNN
 	knn_model = KNN()
-	knn_model.fit(X, y)
+	knn_model.fit(X_train_class, y_train_class)
 
 	# Train Meta Classifier
 	meta_class = train_meta_classifier(val, [model_reg, model_svd, 
 		knn_model, cat_model])
+
+	# Evaluate Meta Classifier
+	score = evaluate_meta_classifier(test, meta_class, [model_reg, model_svd, 
+		knn_model, cat_model])
+	print("TEST SCORE: ", score)
+
+	# Train the models on entire data
+	model_svd.fit(data_svd)
+	model_reg.fit(X_lin, y_lin)
+	cat_model.fit(X_class, y_class)
+	knn_model.fit(X_class, y_class)
 
 	# Create the submission file
 	create_submission_file(loader, preprocessor_reg, meta_class, 
