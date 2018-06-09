@@ -8,7 +8,11 @@ from dsg.data_loader import DataLoader
 from dsg.recommenders.urm_preprocessing import URMPreprocessing
 from dsg.recommenders.collaborative import SVDRec, AsynchSVDRec
 from dsg.regressor.regressor_preprocessing import RegressorPreprocessor
+from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
+from dsg.classification.classifier import CATBoost, KNN
 from dsg.regressor.regressor import Regressor
+from sklearn.linear_model import LogisticRegression
+
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -16,7 +20,7 @@ parser = argparse.ArgumentParser()
 """ General Parameters """
 args = parser.parse_args()
 
-def create_submission_file(loader, preprocessor, models):
+def create_submission_file(loader, preprocessor, meta_class, models):
 	test = loader.load_challenge_data()
 	print(test.head())
 	X = preprocessor.test_transform(test)
@@ -32,6 +36,18 @@ def create_submission_file(loader, preprocessor, models):
 	submission.to_csv(util.SUBMISSION, index=False)
 	return
 
+def train_meta_classifier(val, models):
+	X, y = model[0].features_label_split_df(val)
+	print(X[0:5])
+	print(x.shape)
+	predictions = []
+	for model in models:
+	
+
+	meta_class = LogisticRegression()
+	meta_class.fit(predictions, y)
+	return meta_class
+
 def main():
 
 	# Fixing the seed
@@ -44,18 +60,15 @@ def main():
 	loader = DataLoader()
 	df = loader.load_trade_data()
 
+	###### REGRESSORS
+
 	# Clean Trade Data
 	preprocessor_urm = URMPreprocessing(
-		from_date=20180101,
-		test_date=20180412,
-		val_date=20180405,
-		train_date=20180328
+		test_date=20180416,
+		val_date=20180409,
+		train_date=20180402
 		)
 	train, test, val, data = preprocessor_urm.fit_transform(df)
-
-	# Asynch SVD
-	# model_asynch_svd = AsynchSVDRec()
-	# model_asynch_svd.fit(data)
 
 	# SVD
 	model_svd = SVDRec()
@@ -63,23 +76,41 @@ def main():
 
 	# Clean Trade Data
 	preprocessor_reg = RegressorPreprocessor(
-		from_date=20180101,
-		test_date=20180412,
-		val_date=20180405,
-		train_date=20180328
+		test_date=20180416,
+		val_date=20180409,
+		train_date=20180402
 		)
-	X_train, y_train, X, y = preprocessor_reg.fit_transform(df)
+	X_train, y_train, test, val, X, y = preprocessor_reg.fit_transform(df)
 
-	# Fit and Evaluate the model
+	# Linear Regression
 	model_reg = Regressor()
 	model_reg.fit(X, y)
-		
+
+	###### CLASSIFIERS	
+
+	# Clean Trade Data
+	preprocessor_class = ClassifierPreprocessor(
+		test_date=20180416,
+		val_date=20180409,
+		train_date=20180402
+		)
+	X_train, y_train, test, val, X, y = preprocessor_class.fit_transform(df)
+
+	# CatBoost
+	cat_model = CATBoost()
+	cat_model.fit(X, y)
+
+	# KNN
+	knn_model = KNN()
+	knn_model.fit(X, y)
+
+	# Train Meta Classifier
+	meta_class = train_meta_classifier(val, [model_reg, model_svd, 
+		knn_model, cat_model])
+
 	# Create the submission file
-	create_submission_file(loader, preprocessor_reg, [model_reg, model_svd])
-
-	submission_time = time.clock() - fit_model
-	print("TIME TO PREDICT AND CREATE SUBMISSION FILE: ", submission_time)
-
+	create_submission_file(loader, preprocessor_reg, meta_class, 
+		[model_reg, model_svd, knn_model, cat_model])
 	return
 
 main()

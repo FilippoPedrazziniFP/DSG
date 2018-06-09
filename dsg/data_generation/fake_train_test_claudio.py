@@ -3,18 +3,21 @@ import numpy as np
 import hashlib
 from sklearn.utils import shuffle
 
-class FakeDataGeneratorClaudio(object):
+
+class DataGeneratorClaudio(object):
     def __init__(self):
-        super(FakeDataGeneratorClaudio, self).__init__()
+        super(DataGeneratorClaudio, self).__init__()
 
     def hash(self, row):
         return hashlib.md5((str(row["CustomerIdx"]) + str(row["IsinIdx"]) + row["BuySell"]).encode()).hexdigest()
 
+    @DeprecationWarning
     def generate_train_dataset(self, trade_df, from_day=20171008, till_day=20180405, out_rows=None, imb_perc=None,
                                remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True):
 
         trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
-
+        trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]
+        trade_df = trade_df[["CustomerIdx","IsinIdx","BuySell", "DateKey"]]
         trade_df = self.remove_columns(trade_df, remove_holding, remove_not_eur, remove_price, remove_trade_status)
 
 
@@ -25,7 +28,7 @@ class FakeDataGeneratorClaudio(object):
             trade_df = trade_df[trade_df["DateKey"] <= till_day]
 
         negative_samples_distribution = trade_df
-        positive_samples = trade_df
+        positive_samples = trade_df.drop_duplicates(["CustomerIdx","IsinIdx","BuySell", "DateKey"])
 
         rows_to_add = self.get_rows_to_add(imb_perc, out_rows, positive_samples)
 
@@ -42,14 +45,14 @@ class FakeDataGeneratorClaudio(object):
         negative_samples = pd.DataFrame()
 
         while negative_samples.shape[0] < rows_to_add:
-            still_to_add = int((rows_to_add - negative_samples.shape[0]))
+            still_to_add = int((rows_to_add - negative_samples.shape[0]) * 1.3)
 
             if still_to_add >= negative_samples_distribution.shape[0]:
                 random_interactions = negative_samples_distribution
             else:
                 random_interactions = negative_samples_distribution.sample(still_to_add)
 
-            sampled_days = np.random.choice(days, still_to_add, p=probability_of_being_chosen)
+            sampled_days = np.random.choice(days, random_interactions.shape[0], p=probability_of_being_chosen)
             random_interactions = random_interactions.drop(columns=["DateKey"])
             random_interactions = random_interactions.assign(DateKey=sampled_days)
 
@@ -58,7 +61,9 @@ class FakeDataGeneratorClaudio(object):
                                                columns=["CustomerIdx", "IsinIdx", "BuySell", "DateKey"])
 
             negative_samples = negative_samples.append(random_interactions)
+            negative_samples = negative_samples.drop_duplicates(["CustomerIdx","IsinIdx","BuySell","DateKey"])
 
+        negative_samples = negative_samples.sample(rows_to_add)
         negative_samples["CustomerInterest"] = 0
 
         merged = positive_samples.append(negative_samples)
@@ -67,13 +72,11 @@ class FakeDataGeneratorClaudio(object):
 
         return shuffled
 
-    def generate_test_dataset(self, trade_df, from_day=20180414, till_day=20180420, out_rows=500000, imb_perc=None,
-                              remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True,
-                              set_date=20180416, months_of_trades=6):
+    def generate_test_dataset(self, trade_df, from_day=20180416, till_day=None, set_date=20180417, key_date = 20171022):
 
         trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
-
-        trade_df = self.remove_columns(trade_df, remove_holding, remove_not_eur, remove_price, remove_trade_status)
+        trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]
+        trade_df = trade_df[["CustomerIdx","IsinIdx","BuySell", "DateKey"]]
 
         positive_samples = trade_df
 
@@ -83,39 +86,27 @@ class FakeDataGeneratorClaudio(object):
         if till_day is not None:
             positive_samples = positive_samples[positive_samples["DateKey"] <= till_day]
 
-        positive_samples["DateKey"] = set_date
+        positive_samples = positive_samples.drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
+        positive_samples["CustomerInterest"] = 1
 
-        rows_to_add = self.get_rows_to_add(imb_perc, out_rows, positive_samples)
+        negative_samples_new = trade_df[trade_df["DateKey"] >= key_date].sample(frac=0.95)
 
-        if rows_to_add <= 0:
-            return positive_samples
+        # Here we have to have a bigger sample of old negative samples (15% instead of 8% as we said before)
+        # because the drop duplicates
+        # will keep only the first occurrence, and the append will put the old negatives as second occurrence
+        # so quite a bit of old negatives samples will be removed.
+        # 15 % is a good value because it gives an output test with more or less the same size of challenge
+        negative_samples_old = trade_df[trade_df["DateKey"] < key_date].sample(frac=0.15)
 
-        # sample the negative samples from the previous months
-        months_before_from_day = self.monthsbefore(from_day, months_of_trades)
-        negative_samples_distribution = trade_df[trade_df["DateKey"] >= months_before_from_day]
-        negative_samples_distribution = negative_samples_distribution[negative_samples_distribution["DateKey"] <= from_day]
-
-
-        negative_samples = pd.DataFrame()
-
-        while negative_samples.shape[0] < rows_to_add:
-            still_to_add = int((rows_to_add - negative_samples.shape[0]))
-            random_interactions = negative_samples_distribution.sample(still_to_add)
-
-            random_interactions["DateKey"] = set_date
-
-            random_interactions = self.exclude(random_interactions,
-                                               positive_samples,
-                                               columns=["CustomerIdx", "IsinIdx", "BuySell", "DateKey"])
-
-            negative_samples = negative_samples.append(random_interactions)
+        negative_samples = negative_samples_new.append(negative_samples_old).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
 
         negative_samples["CustomerInterest"] = 0
 
-        merged = positive_samples.append(negative_samples)
+        merged = positive_samples.append(negative_samples).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
+
+        merged["DateKey"] = set_date
 
         shuffled = shuffle(merged).reset_index(drop=True)
-
         return shuffled
 
     def get_rows_to_add(self, imb_perc, out_rows, positive_samples):
@@ -135,35 +126,10 @@ class FakeDataGeneratorClaudio(object):
         return self.generate_train_dataset(trade_df, from_day, till_day, out_rows, imb_perc,
                                      remove_holding, remove_price, remove_not_eur, remove_trade_status)
 
-    def generate_validation_dataset(self, trade_df, from_day=20180407, till_day=20180413, out_rows=500000,
-                                    imb_perc=None,
-                                    remove_holding=True, remove_price=True, remove_not_eur=True,
-                                    remove_trade_status=True,
-                                    set_date=20180409, months_of_trades=6):
+    def generate_validation_dataset(self, trade_df, from_day=20180409, till_day=20180414, set_date=20180410, key_date = 20171022):
 
-        return self.generate_test_dataset(trade_df, from_day, till_day, out_rows, imb_perc,
-                                     remove_holding, remove_price, remove_not_eur, remove_trade_status, set_date,
-                                     months_of_trades)
+        return self.generate_test_dataset(trade_df, from_day, till_day, set_date, key_date)
 
-    def remove_columns(self, trade_df, remove_holding=True, remove_not_eur=True, remove_price=True,
-                       remove_trade_status=True):
-
-        if remove_price and "Price" in trade_df.columns:
-            trade_df = trade_df.drop(columns=["Price"])
-        if remove_not_eur and "NotionalEUR" in trade_df.columns:
-            trade_df = trade_df.drop(columns=["NotionalEUR"])
-        if remove_holding and "TradeStatus" in trade_df.columns:
-            trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]
-        if remove_trade_status and "TradeStatus" in trade_df.columns:
-            trade_df = trade_df.drop(columns=["TradeStatus"])
-
-        return trade_df
-
-    def exclude(self, df1, df2, columns=None):
-        if columns is None:
-            return df1[~df1.isin(df2).all(1)]
-        else:
-            return df1[~df1[columns].isin(df2[columns]).all(1)]
 
     def monthsbefore(self, from_day, months_to_remove):
         year = int(str(from_day)[:4])

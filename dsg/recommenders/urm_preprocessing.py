@@ -4,11 +4,10 @@ import dsg.util as util
 from dsg.data_generation.data_generator import FakeGeneratorFilo
 
 class URMPreprocessing(object):
-	def __init__(self, from_date, test_date, 
+	def __init__(self, test_date, 
 			val_date, train_date):
 		super(URMPreprocessing, self).__init__()
 		self.val_date = val_date
-		self.from_date = from_date
 		self.train_date = train_date
 		self.test_date = test_date
 
@@ -23,7 +22,7 @@ class URMPreprocessing(object):
 	def transform(self, df):
 		return
 
-	def filter_data(self, df, date):
+	def filter_data(self, df, date=20180101):
 		df = df[df["TradeDateKey"] >= date]
 		return df
 
@@ -39,33 +38,24 @@ class URMPreprocessing(object):
 			@return
 				X_train, y_train, X_test, y_test : numpy array
 		"""
-		# Delete Holding Values
-		df = df[df["TradeStatus"] != "Holding"]
-
-		# Drop Useless Columns
-		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
-		df = df.sort_values("TradeDateKey", ascending=True)
-
-		# Filter Data 
-		df_filtered = self.filter_data(df, self.from_date)
-
+		
 		# Train, test, val split
 		data_generator = FakeGeneratorFilo()
-		train = data_generator.generate_train_set_svd(df_filtered, self.val_date)
+		train = data_generator.generate_train_set_svd(df, self.val_date)
 
 		# Generate Test Set
-		test = data_generator.generate_test_set(
+		test = data_generator.generate_test_set_impr(
 			df=df, 
 			from_date=self.test_date
 			)
-		val = data_generator.generate_test_set(
+		val = data_generator.generate_test_set_impr(
 			df=df, 
 			from_date=self.val_date,
 			to_date=self.test_date
 			)
 
 		# Entire Train
-		data = data_generator.generate_train_set_svd(df_filtered)		
+		data = data_generator.generate_train_set_svd(df)		
 		
 		return train, test, val, data
 
@@ -73,3 +63,20 @@ class URMPreprocessing(object):
 	    df.set_index([user_key, item_key], inplace=True)
 	    mat = sps.csr_matrix((df[rating_key], (df.index.labels[0], df.index.labels[1])))
 	    return mat
+
+	def fit_transform_claudio(self, df):
+
+		# Train, test, val split
+		data_generator = FakeGeneratorFilo()
+		train = data_generator.generate_train_set_svd(df, self.val_date)
+		
+		# Generate Test Set
+		test, val = data_generator.generate_test_val_set_claudio(df=df)
+		
+		# Entire Train
+		data = data_generator.generate_train_set_linear(df, self.test_date)
+
+		return train, test, val, data
+
+
+
