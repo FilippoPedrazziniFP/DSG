@@ -59,25 +59,15 @@ class RegressorPreprocessor(object):
 
 	def fit_transform_claudio(self, df):
 
-		# Delete Holding Values
-		df_clean = df[df["TradeStatus"] != "Holding"]
-
-		# Drop Useless Columns
-		df_clean = df_clean.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
-		df_clean = df_clean.sort_values("TradeDateKey", ascending=True)
-
-		# Filter Data
-		df_filtered = self.filter_data(df_clean)
-
 		# Train, test, val split
 		data_generator = FakeGeneratorFilo()
-		X_train, y_train = data_generator.generate_train_set_linear(df_filtered, self.train_date, self.val_date)
+		X_train, y_train = data_generator.generate_train_set_linear(df, self.train_date, self.val_date)
 		
 		# Generate Test Set
 		test, val = data_generator.generate_test_val_set_claudio(df=df)
 		
 		# Entire Train
-		X, y = data_generator.generate_train_set_linear(df_clean, self.test_date)
+		X, y = data_generator.generate_train_set_linear(df, self.test_date)
 
 		return X_train, y_train, test, val, X, y
 		

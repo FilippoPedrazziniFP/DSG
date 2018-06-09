@@ -206,11 +206,54 @@ class Classifier(object):
 		last_int = last_int.reset_index(level=['CustomerIdx', 'IsinIdx'])
 		last_int = last_int[["CustomerIdx", 'IsinIdx', "LastInt"]]
 
-		# Merge
+		# First Merge
 		df = pd.merge(num_int, last_int, on=['CustomerIdx', "IsinIdx"], how='left')
 
 		# Fill NAN with Zeros
-		df.fillna(0, inplace=True)
+		"""df.fillna(100, inplace=True)
+
+		# Last month Interactions
+		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
+		last_month_df = last_month_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_month_df["LastMonthInt"] = last_month_df["TradeDateKey"]
+		last_month_df = last_month_df.reset_index()
+		last_month_df = last_month_df[["CustomerIdx", 'IsinIdx', "LastMonthInt"]]
+
+		# Second Merge
+		df = pd.merge(df, last_month_df, on=['CustomerIdx', "IsinIdx"], how='left')
+
+		# Last Week Interactions
+		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -7]
+		last_week_df = last_week_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_week_df["LastWeekInt"] = last_week_df["TradeDateKey"]
+		last_week_df = last_week_df.reset_index()
+		last_week_df = last_week_df[["CustomerIdx", 'IsinIdx', "LastWeekInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_week_df, on=['CustomerIdx', "IsinIdx"], how='left')
+
+		# Last 2 Week Interactions
+		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -15]
+		last_2_week_df = last_2_week_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_2_week_df["Last2WeekInt"] = last_2_week_df["TradeDateKey"]
+		last_2_week_df = last_2_week_df.reset_index()
+		last_2_week_df = last_2_week_df[["CustomerIdx", 'IsinIdx', "Last2WeekInt"]]
+
+		# Fourth Merge
+		df = pd.merge(df, last_2_week_df, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Last 2 Month Interactions
+		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -60]
+		last_2_month_df = last_2_month_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_2_month_df["Last2MonthInt"] = last_2_month_df["TradeDateKey"]
+		last_2_month_df = last_2_month_df.reset_index()
+		last_2_month_df = last_2_month_df[["CustomerIdx", 'IsinIdx', "Last2MonthInt"]]
+
+		# Final Merge
+		df = pd.merge(df, last_2_month_df, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Fill NAN with Zeros
+		df.fillna(0, inplace=True)"""
 
 		print(df.head())
 		print(df.describe())

@@ -37,25 +37,25 @@ class ClassifierPreprocessor(object):
 		data_generator = FakeGeneratorFilo()
 		
 		# Train Data
-		X_train, y_train = data_generator.generate_train_set_classification(
+		X_train, y_train = data_generator.generate_train_set_classification_impr(
 			df=df, 
 			from_date=self.train_date, 
 			to_date=self.val_date
 			)
 		
 		# Generate Test Set
-		test = data_generator.generate_test_set(
+		test = data_generator.generate_test_set_impr(
 			df=df, 
 			from_date=self.test_date
 			)
-		val = data_generator.generate_test_set(
+		val = data_generator.generate_test_set_impr(
 			df=df, 
 			from_date=self.val_date,
 			to_date=self.test_date
 			)
 		
 		# Entire Train
-		X, y = data_generator.generate_train_set_classification(
+		X, y = data_generator.generate_train_set_classification_impr(
 			df=df,
 			from_date=self.test_date)
 

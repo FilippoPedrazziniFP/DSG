@@ -44,11 +44,11 @@ class URMPreprocessing(object):
 		train = data_generator.generate_train_set_svd(df, self.val_date)
 
 		# Generate Test Set
-		test = data_generator.generate_test_set(
+		test = data_generator.generate_test_set_impr(
 			df=df, 
 			from_date=self.test_date
 			)
-		val = data_generator.generate_test_set(
+		val = data_generator.generate_test_set_impr(
 			df=df, 
 			from_date=self.val_date,
 			to_date=self.test_date
@@ -63,3 +63,20 @@ class URMPreprocessing(object):
 	    df.set_index([user_key, item_key], inplace=True)
 	    mat = sps.csr_matrix((df[rating_key], (df.index.labels[0], df.index.labels[1])))
 	    return mat
+
+	def fit_transform_claudio(self, df):
+
+		# Train, test, val split
+		data_generator = FakeGeneratorFilo()
+		train = data_generator.generate_train_set_svd(df, self.val_date)
+		
+		# Generate Test Set
+		test, val = data_generator.generate_test_val_set_claudio(df=df)
+		
+		# Entire Train
+		data = data_generator.generate_train_set_linear(df, self.test_date)
+
+		return train, test, val, data
+
+
+
