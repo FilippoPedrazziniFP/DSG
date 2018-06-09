@@ -89,14 +89,14 @@ class DataGenerator(object):
         positive_samples = positive_samples.drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
         positive_samples["CustomerInterest"] = 1
 
-        negative_samples_new = trade_df[trade_df["DateKey"] >= key_date].sample(frac=0.95).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
+        negative_samples_new = trade_df[trade_df["DateKey"] >= key_date].drop_duplicates(["CustomerIdx","IsinIdx","BuySell"]).sample(frac=0.95)
 
         # Here we have to have a bigger sample of old negative samples (15% instead of 8% as we said before)
         # because the drop duplicates
         # will keep only the first occurrence, and the append will put the old negatives as second occurrence
         # so quite a bit of old negatives samples will be removed.
         # 15 % is a good value because it gives an output test with more or less the same size of challenge
-        negative_samples_old = trade_df[trade_df["DateKey"] < key_date].sample(frac=0.15).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
+        negative_samples_old = trade_df[trade_df["DateKey"] < key_date].drop_duplicates(["CustomerIdx","IsinIdx","BuySell"]).sample(frac=0.15)
 
         negative_samples = negative_samples_new.append(negative_samples_old).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
 
