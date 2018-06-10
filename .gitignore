@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.pkl
 *catboost_info/
 *data
 *.DS_Store

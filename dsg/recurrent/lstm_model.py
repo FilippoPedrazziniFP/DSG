@@ -5,7 +5,7 @@ from tensorflow.python.keras import backend as K
 from sklearn.metrics import mean_absolute_error
 
 class LSTMModel(object):
-	def __init__(self, epochs=100, batch_size=32, input_shape=(30, 1)):
+	def __init__(self, epochs=100, batch_size=32, input_shape=(8, 3)):
 		super(LSTMModel, self).__init__()
 		self.epochs = epochs
 		self.batch_size = batch_size
@@ -20,12 +20,12 @@ class LSTMModel(object):
 		model = Sequential()
 		model.add(GRU(64, return_sequences=False, 
 			input_shape=self.input_shape))
-		model.add(Dense(1))
+		model.add(Dense(1, activation="sigmoid"))
 
 		model.compile(
-			loss=LSTMModel.root_mean_squared_error, 
+			loss="binary_crossentropy", 
 			optimizer=Adam(), 
-			metrics=['mae']
+			metrics=["accuracy"]
 			)
 		return model
 

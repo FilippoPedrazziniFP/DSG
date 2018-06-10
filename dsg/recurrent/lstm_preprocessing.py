@@ -1,10 +1,10 @@
 import dsg.util as util
 import numpy as np
 
-class TrendPreprocessor(object):
+class SequencePreprocessor(object):
 	def __init__(self, from_date, test_samples, 
 		val_samples, seq_length=30):
-		super(TrendPreprocessor, self).__init__()
+		super(SequencePreprocessor, self).__init__()
 		self.from_date = from_date
 		self.test_samples = test_samples
 		self.val_samples = val_samples
@@ -17,9 +17,6 @@ class TrendPreprocessor(object):
 		df = df.drop(["PredictionIdx", "DateKey", "BuySell"], axis=1)
 		X = df.values
 		return X
-
-	def transform(self, df):
-		return
 
 	def filter_data(self, df, date):
 		df = df[df["TradeDateKey"] >= date]
