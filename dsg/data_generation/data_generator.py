@@ -149,7 +149,7 @@ class FakeGeneratorFilo(object):
 		return test, val
 
 
-	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20160101, clip=2):
+	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20160101, clip=1):
 		"""
 			The method creates a dataframe for testing purposes similar to the one 
 			of the competition. It uses the last 6 months interactions as negative labels.
