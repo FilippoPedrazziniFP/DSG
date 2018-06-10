@@ -5,8 +5,8 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
-from dsg.classification.classifier import CATBoost
+from dsg.regressor.regressor_preprocessing import RegressorPreprocessor
+from dsg.regressor.regressor import Regressor
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -38,7 +38,7 @@ def main():
 	df = loader.load_trade_data()
 
 	# Clean Trade Data
-	preprocessor = ClassifierPreprocessor(
+	preprocessor = RegressorPreprocessor(
 		test_date=20180416,
 		val_date=20180409,
 		train_date=20180402
@@ -47,9 +47,7 @@ def main():
 
 	print("TRAIN")
 	print(X_train.head())
-	print(X_train.describe())
 	print(y_train.head())
-	print(y_train.describe())
 	print("TEST")
 	print(test.head())
 	print(test.describe())
@@ -58,21 +56,17 @@ def main():
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = CATBoost()
+	model = Regressor()
 	model.fit(X_train, y_train)
 
 	# Evaluate the model
 	score = model.evaluate(test)
 	print("TEST SCORE: ", score)
-
-	# Evaluate the model
-	# score = model.evaluate(val)
-	# print("VAL SCORE: ", score)
 	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
-	# exit()
+	exit()
 
 	# Fit on the entire data 
 	model.fit(X, y)

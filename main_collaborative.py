@@ -5,8 +5,8 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
-from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
-from dsg.classification.classifier import CATBoost
+from dsg.recommenders.urm_preprocessing import URMPreprocessing
+from dsg.recommenders.collaborative import SVDRec, AsynchSVDRec, SimpleKNN, NMFAlgo, Slope, BaselineKNN, Clustering
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -38,18 +38,16 @@ def main():
 	df = loader.load_trade_data()
 
 	# Clean Trade Data
-	preprocessor = ClassifierPreprocessor(
-		test_date=20180416,
-		val_date=20180409,
-		train_date=20180402
+	preprocessor = URMPreprocessing(
+		test_date=20180412,
+		val_date=20180405,
+		train_date=20180328
 		)
-	X_train, y_train, test, val, X, y = preprocessor.fit_transform(df)
+	train, test, val, data = preprocessor.fit_transform_claudio(df)
 
 	print("TRAIN")
-	print(X_train.head())
-	print(X_train.describe())
-	print(y_train.head())
-	print(y_train.describe())
+	print(train.head())
+	print(train.describe())
 	print("TEST")
 	print(test.head())
 	print(test.describe())
@@ -58,24 +56,29 @@ def main():
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
 
 	# Fit and Evaluate the model
-	model = CATBoost()
-	model.fit(X_train, y_train)
+	model = SVDRec()
+	model.fit(train)
+
+	print("TRAINING FINISHED; STARTING VALIDATION..")
+
+	# Cross Validation
+	# scores = model.cross_validation(train)
+	# print(scores)
+
+	# Model Tuning
+	# model.tune(train)
 
 	# Evaluate the model
 	score = model.evaluate(test)
 	print("TEST SCORE: ", score)
-
-	# Evaluate the model
-	# score = model.evaluate(val)
-	# print("VAL SCORE: ", score)
 	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
 
-	# exit()
+	exit()
 
 	# Fit on the entire data 
-	model.fit(X, y)
+	model.fit(data)
 	
 	fit_data = time.clock() - fit_model
 	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
