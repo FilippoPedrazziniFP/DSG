@@ -276,14 +276,7 @@ class Classifier(object):
 
 		# Create Train set with the dictionaries
 		train = self.create_set(y_train_df)
-
-		"""
-			Save the train set into a Data Frame
-		"""
-
-		print(train[0:5])
-		print(train.shape)
-
+		
 		print("CREATED TRAIN SET; STARTING TO FIT THE MODEL..")
 
 		# Split Features and Labels
@@ -321,9 +314,11 @@ class Classifier(object):
 			except KeyError:
 				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
 			
-			label = sample[2]
+			label = sample[-1]
 			row = np.append(customer_features, bond_features)
 			row = np.append(row, cus_bond_features)
+			sell_buy = [sample[2], sample[3]]
+			row = np.append(row, sell_buy)
 			row = np.append(row, label)
 			train_set.append(row)
 		train_set = np.asarray(train_set)
@@ -368,6 +363,8 @@ class Classifier(object):
 			
 			features = np.append(customer_features, bond_features)
 			features = np.append(features, cus_bond_features)
+			sell_buy = [sample[2], sample[3]]
+			features = np.append(features, sell_buy)
 			features = np.asarray(features)
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)
@@ -465,6 +462,30 @@ class RF(Classifier):
 
 		# Fit the model
 		model = RandomForestClassifier()
+		model.fit(X_train, y_train)
+		return model
+
+class LR(Classifier):
+	def __init__(self):
+		super(LR, self).__init__()
+
+	def train_classifier(self, X_train, y_train):
+		"""
+			Simple classifier to put a weight 
+			to the frequency feature.
+		"""
+		self.scaler = StandardScaler()
+		self.scaler.fit(X_train)
+		X_train = self.scaler.transform(X_train)
+
+		# Plot Distribution of Labels
+		# Explorer.plot_array(y_train)
+		print(y_train.mean())
+		print(y_train.std())
+		print(y_train.max())
+
+		# Fit the model
+		model = LogisticRegression()
 		model.fit(X_train, y_train)
 		return model
 
