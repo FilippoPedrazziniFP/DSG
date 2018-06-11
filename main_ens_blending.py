@@ -30,33 +30,44 @@ def create_submission_file(loader, preprocessor, meta_class, models):
 		preds = model.predict(X)
 		predictions.append(preds)
 	predictions = np.asarray(predictions)
-	predictions = np.sum(predictions, axis=0) / len(models)
+	predictions = predictions.T
+	print(predictions[0:5])
+	print(predictions.max())
+	final_predictions = []
+	for pred in predictions:
+		pred = np.reshape(pred, (1, -1))
+		final_predictions.append(1 - meta_class.predict_proba(pred)[0][0])
+	final_predictions = np.asarray(final_predictions)
 	submission = loader.load_submission_file()
-	submission["CustomerInterest"] = predictions
+	submission["CustomerInterest"] = final_predictions
 	submission.to_csv(util.SUBMISSION, index=False)
 	return
 
 def train_meta_classifier(val, models):
-	X, y = model[0].features_label_split_df(val)
+	X, y = models[0].features_labels_split_df(val)
 	print(X[0:5])
-	print(x.shape)
+	print(X.shape)
 	predictions = []
 	for model in models:
 		pred = model.predict(X)
 		predictions.append(pred)
 
 	predictions = np.asarray(predictions)
+	print("PREDICTIONS BEFORE TRANSPOSE ON")
+	print(predictions[0:5])
 	print(predictions.shape)
 	predictions = predictions.T
 	print(predictions.shape)
+	print("PREDICTIONS TO TRAIN ON")
+	print(predictions[0:5])
 	meta_class = LogisticRegression()
 	meta_class.fit(predictions, y)
 	return meta_class
 
 def evaluate_meta_classifier(test, meta_class, models):
-	X, y = model[0].features_label_split_df(test)
+	X, y = models[0].features_labels_split_df(test)
 	print(X[0:5])
-	print(x.shape)
+	print(X.shape)
 	predictions = []
 	for model in models:
 		pred = model.predict(X)
@@ -66,9 +77,12 @@ def evaluate_meta_classifier(test, meta_class, models):
 	print(predictions.shape)
 	predictions = predictions.T
 	print(predictions.shape)
-	meta_class = LogisticRegression()
-	final_predictions = meta_class.predict(predictions)
-	score = roc_auc_score(y_test, list(final_predictions))
+	final_predictions = []
+	for pred in predictions:
+		pred = np.reshape(pred, (1, -1))
+		final_predictions.append(1 - meta_class.predict_proba(pred)[0][0])
+	final_predictions = np.asarray(final_predictions)
+	score = roc_auc_score(y, list(final_predictions))
 	return score
 
 def main():
@@ -95,7 +109,7 @@ def main():
 
 	# SVD
 	model_svd = SVDRec()
-	model_svd.fit(train)
+	model_svd.fit(train_svd)
 
 	# Clean Trade Data
 	preprocessor_reg = RegressorPreprocessor(
@@ -128,13 +142,13 @@ def main():
 	knn_model.fit(X_train_class, y_train_class)
 
 	# Train Meta Classifier
-	meta_class = train_meta_classifier(val, [model_reg, model_svd, 
-		knn_model, cat_model])
+	meta_class = train_meta_classifier(val, [model_reg, model_svd, cat_model, knn_model])
 
 	# Evaluate Meta Classifier
-	score = evaluate_meta_classifier(test, meta_class, [model_reg, model_svd, 
-		knn_model, cat_model])
+	score = evaluate_meta_classifier(test, meta_class, [model_reg, model_svd, cat_model, knn_model])
 	print("TEST SCORE: ", score)
+
+	#exit()
 
 	# Train the models on entire data
 	model_svd.fit(data_svd)

@@ -270,9 +270,11 @@ class Regressor(object):
 			except KeyError:
 				cus_bond_features = np.array([0.0, 100.0])
 			
-			label = sample[2]
+			label = sample[-1]
 			row = np.append(customer_features, bond_features)
 			row = np.append(row, cus_bond_features)
+			sell_buy = [sample[2], sample[3]]
+			row = np.append(row, sell_buy)
 			row = np.append(row, label)
 			train_set.append(row)
 		train_set = np.asarray(train_set)
@@ -350,6 +352,8 @@ class Regressor(object):
 			
 			features = np.append(customer_features, bond_features)
 			features = np.append(features, cus_bond_features)
+			sell_buy = [sample[2], sample[3]]
+			features = np.append(features, sell_buy)
 			features = np.asarray(features)
 			features = np.reshape(features, (1, -1))
 			features = self.scaler.transform(features)

@@ -91,7 +91,7 @@ class FakeGeneratorFilo(object):
 		return data
 
 	def generate_train_set_classification(self, df, from_date, to_date=None, 
-			from_date_label=20160101, from_date_features=20180101):
+			from_date_label=20160101, from_date_features=20180101, clip=1):
 		"""
 			The method generates the training set for classification purposes.
 		"""
@@ -110,60 +110,30 @@ class FakeGeneratorFilo(object):
 
 		# Negative Samples
 		negative_samples = df[df["TradeDateKey"] >= from_date_label]
-		negative_samples = negative_samples.groupby(["CustomerIdx", "IsinIdx"]).count()
-		negative_samples = negative_samples[negative_samples["CustomerInterest"] <= 2]
+		negative_samples = negative_samples.groupby(["CustomerIdx", "IsinIdx", "BuySell"]).count()
+		negative_samples = negative_samples[negative_samples["CustomerInterest"] <= clip]
 		negative_samples["CustomerInterest"] = negative_samples["CustomerInterest"].apply(lambda x: 0 if x > 0 else x)
-		negative_samples = negative_samples.reset_index(level=['CustomerIdx', 'IsinIdx'])
+		negative_samples = negative_samples.reset_index(level=['CustomerIdx', 'IsinIdx', "BuySell"])
 
 		# Concatanate Negative and Positive Samples
 		labels = pd.concat([positive_samples, negative_samples])
-		labels = labels.drop(["TradeDateKey", "BuySell"], axis=1)
+		labels = labels.drop(["TradeDateKey"], axis=1)
 		
 		# The Train is composed of all the values before the Date
 		features = df[df["TradeDateKey"] >= from_date_features]
 		features = features[features["TradeDateKey"] <= from_date]
 
 		# Reorder Labels
-		labels = labels[['CustomerIdx', 'IsinIdx', 'CustomerInterest']]
-
-		return features, labels
-
-	def generate_train_set_classification_impr(self, df, from_date, to_date=None, 
-			from_date_label=20160101, from_date_features=20180101):
-		"""
-			The method generates the training set for classification purposes.
-		"""
-		# Delete Holding Values
-		df = df[df["TradeStatus"] != "Holding"]
-
-		# Drop Useless Columns
-		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
-		df = df.sort_values("TradeDateKey", ascending=True)
-
-		# Get Positive Values
-		if to_date is None:
-			positive_samples = df[df["TradeDateKey"] >= from_date]
-		else:
-			positive_samples = df[(df["TradeDateKey"] >= from_date) & (df["TradeDateKey"] < to_date)]
-
-		# Negative Samples
-		negative_samples = df[df["TradeDateKey"] >= from_date_label]
-		negative_samples = negative_samples.groupby(["CustomerIdx", "IsinIdx"]).count()
-		negative_samples = negative_samples[negative_samples["CustomerInterest"] <= 1]
-		negative_samples["CustomerInterest"] = negative_samples["CustomerInterest"].apply(lambda x: 0 if x > 0 else x)
-		negative_samples = negative_samples.reset_index(level=['CustomerIdx', 'IsinIdx'])
-
-		# Concatanate Negative and Positive Samples
-		labels = pd.concat([positive_samples, negative_samples])
-		labels = labels.drop(["TradeDateKey", "BuySell"], axis=1)
+		labels = labels[['CustomerIdx', 'IsinIdx', 'BuySell', 'CustomerInterest']]
 		
-		# The Train is composed of all the values before the Date
-		features = df[df["TradeDateKey"] >= from_date_features]
-		features = features[features["TradeDateKey"] <= from_date]
+		# Unique Values
+		labels = labels.groupby(['CustomerIdx', 'IsinIdx', 'BuySell']).sum()
+		labels = labels.reset_index(level=['CustomerIdx', 'IsinIdx', 'BuySell'])
+		labels["CustomerInterest"] = labels["CustomerInterest"].apply(lambda x: 1 if x > 1 else x)
 
-		# Reorder Labels
-		labels = labels[['CustomerIdx', 'IsinIdx', 'CustomerInterest']]
-
+		# One Hot Encoding for Sell and Buy
+		labels = pd.get_dummies(labels, columns=['BuySell'])
+		labels = labels[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
 		return features, labels
 
 	def generate_test_val_set_claudio(self, df):
@@ -179,7 +149,7 @@ class FakeGeneratorFilo(object):
 		return test, val
 
 
-	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20160101):
+	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20160101, clip=1):
 		"""
 			The method creates a dataframe for testing purposes similar to the one 
 			of the competition. It uses the last 6 months interactions as negative labels.
@@ -205,52 +175,31 @@ class FakeGeneratorFilo(object):
 		
 		# Negative Samples
 		negative_samples = df[df["TradeDateKey"] >= from_date_label]
-		negative_samples = negative_samples.groupby(["CustomerIdx", "IsinIdx"]).count()
-		negative_samples = negative_samples[negative_samples["CustomerInterest"] <= 2]
+		negative_samples = negative_samples.groupby(["CustomerIdx", "IsinIdx", "BuySell"]).count()
+		negative_samples = negative_samples[negative_samples["CustomerInterest"] <= clip]
 		negative_samples["CustomerInterest"] = negative_samples["CustomerInterest"].apply(lambda x: 0 if x > 0 else x)
-		negative_samples = negative_samples.reset_index(level=['CustomerIdx', 'IsinIdx'])
+		negative_samples = negative_samples.reset_index(level=['CustomerIdx', 'IsinIdx', "BuySell"])
+
+		# Generate Random New Negative Samples
+		"""
+
+			To implement - two ways:
+				- random from the list of customer and bonds that never interacted
+				with each other.
+				- use sell and buy to generate them. if CUS BOND SELL = 1 then CUS BOND BUY = 0
+		"""
 
 		# Concatanate Negative and Positive Samples
 		test_set = pd.concat([positive_samples, negative_samples])
-		test_set = test_set.drop(["TradeDateKey", "BuySell"], axis=1)
-		test_set = test_set[['CustomerIdx', 'IsinIdx', 'CustomerInterest']]
-		
-		return test_set
-	
-	def generate_test_set_impr(self, df, from_date, to_date=None, from_date_label=20160101):
-		"""
-			The method creates a dataframe for testing purposes similar to the one 
-			of the competition. It uses the last 6 months interactions as negative labels.
+		test_set = test_set.drop(["TradeDateKey"], axis=1)
 
-			@args
-				df : DataFrame -> entire Trade Table.
-				from_date : int -> corresponding tot the date in which 
-					we start the week of test.
-				from_date_label : int -> representing the starting date from
-					which we start to collect the negative samples.
-				to_date : int -> date representing the end of the week.
-			@return
-				test_set : DataFrame -> with 1 week of positive and negative 
-					samples from the week considered and the previous 6 months.
-		"""
-		# Delete Holding Values
-		df = df[df["TradeStatus"] != "Holding"]
-		
-		if to_date is None:
-			positive_samples = df[df["TradeDateKey"] >= from_date]
-		else:
-			positive_samples = df[(df["TradeDateKey"] >= from_date) & (df["TradeDateKey"] < to_date)]
-		
-		# Negative Samples
-		negative_samples = df[df["TradeDateKey"] >= from_date_label]
-		negative_samples = negative_samples.groupby(["CustomerIdx", "IsinIdx"]).count()
-		negative_samples = negative_samples[negative_samples["CustomerInterest"] <= 1]
-		negative_samples["CustomerInterest"] = negative_samples["CustomerInterest"].apply(lambda x: 0 if x > 0 else x)
-		negative_samples = negative_samples.reset_index(level=['CustomerIdx', 'IsinIdx'])
+		# Unique Values
+		test_set = test_set.groupby(['CustomerIdx', 'IsinIdx', "BuySell"]).sum()
+		test_set = test_set.reset_index(level=['CustomerIdx', 'IsinIdx', "BuySell"])
+		test_set["CustomerInterest"] = test_set["CustomerInterest"].apply(lambda x: 1 if x > 1 else x)
 
-		# Concatanate Negative and Positive Samples
-		test_set = pd.concat([positive_samples, negative_samples])
-		test_set = test_set.drop(["TradeDateKey", "BuySell"], axis=1)
-		test_set = test_set[['CustomerIdx', 'IsinIdx', 'CustomerInterest']]
-		
+		# One Hot Encoding for Sell and Buy
+		test_set = pd.get_dummies(test_set, columns=['BuySell'])
+		test_set = test_set[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]		
 		return test_set
+

@@ -6,7 +6,7 @@ import pandas as pd
 
 from dsg.data_loader import DataLoader
 from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
-from dsg.classification.classifier import CATBoost
+from dsg.classification.classifier import CATBoost, LR
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
@@ -62,7 +62,7 @@ def main():
 	model.fit(X_train, y_train)
 
 	# Evaluate the model
-	score = model.evaluate(test)
+	score = model.evaluate(val)
 	print("TEST SCORE: ", score)
 
 	# Evaluate the model

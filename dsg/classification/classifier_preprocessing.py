@@ -1,3 +1,4 @@
+import pandas as pd
 import dsg.util as util
 from dsg.data_generation.data_generator import FakeGeneratorFilo
 
@@ -13,8 +14,15 @@ class ClassifierPreprocessor(object):
 		return
 
 	def test_transform(self, df):
-		df = df.drop(["PredictionIdx", "DateKey", "BuySell"], axis=1)
-		X = df.values
+		df = df.drop(["PredictionIdx", "DateKey"], axis=1)
+		df = pd.get_dummies(df, columns=["BuySell"])
+		df = df[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
+
+		print("TEST")
+		print(df.head())
+		print(df.describe())
+
+		X = df.values		
 		return X
 
 	def transform(self, df):
