@@ -57,7 +57,7 @@ class FeatureExtractor(object):
         for i in range(1, n_weeks + 1):
 
             seq2 = seq[key + ["DateKey", ("%sBuy1w" % col_suf), ("%sSell1w" % col_suf)]]
-            seq2["DateKey"] = seq2["DateKey"].apply(lambda x: self.days_before(x, i * 7))
+            seq2["DateKey"] = seq2["DateKey"].apply(lambda x: self.days_after(x, i * 7))
             seq2 = seq2.rename(columns={("%sBuy1w" % col_suf): col_suf + "Buy" + str(i) + "WeeksBefore", (
                 "%sSell1w" % col_suf): col_suf + "Sell" + str(i) + "WeeksBefore"})
             seq = seq.merge(seq2, on=key + ["DateKey"], how="left")
