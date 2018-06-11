@@ -9,7 +9,7 @@ class DataGenerator(object):
         super(DataGenerator, self).__init__()
 
 
-    def generate_train_dataset(self, trade_df, from_day=20180205, till_day=20180414):
+    def generate_train_dataset(self, trade_df, from_day=20180409, till_day=20180414):
 
         trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
         trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]
@@ -35,7 +35,7 @@ class DataGenerator(object):
         negative_samples = trade_df[trade_df["DateKey"] >= key_date].drop_duplicates(["CustomerIdx","IsinIdx"])
 
         negative_samples = negative_samples[["CustomerIdx", "IsinIdx"]]
-        negative_samples = negative_samples.sample(int(positive_samples.shape[0]/1.9)).reset_index(drop=True)
+        #negative_samples = negative_samples.sample(int(positive_samples.shape[0]/1.9)).reset_index(drop=True)
         negative_samples_copy = negative_samples.copy()
         negative_samples["BuySell"] = "Buy"
         negative_samples_copy["BuySell"] = "Sell"
