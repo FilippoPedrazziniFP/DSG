@@ -9,7 +9,7 @@ class DataGenerator(object):
         super(DataGenerator, self).__init__()
 
 
-    def generate_train_dataset(self, trade_df, from_day=20180409, till_day=20180414):
+    def generate_train_dataset(self, trade_df, from_day=20180407, till_day=20180414):
 
         trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
         trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]

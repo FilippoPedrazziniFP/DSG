@@ -37,10 +37,10 @@ class Classifier(object):
 			The method creates a dictionary with
 			BondIdx : features.
 		"""
-		if os.path.isfile("data/bond_frequency_features2018.csv"):
-			bond_features = pd.read_csv("data/bond_frequency_features2018.csv")
+		if os.path.isfile("data/bond_frequency_features2017.csv"):
+			bond_features = pd.read_csv("data/bond_frequency_features2017.csv")
 		else:
-			print("FILE NOT FOUND: data/bond_frequency_features2018.csv")
+			print("FILE NOT FOUND: data/bond_frequency_features2017.csv")
 
 		return bond_features
 
@@ -54,10 +54,10 @@ class Classifier(object):
 			CustomerIdx : Freq, Last Int, Last Month, Last Week, 
 				Last 2 Week, Last 2 Months
 		"""
-		if os.path.isfile("data/cust_frequency_features2018.csv"):
-			cust_features = pd.read_csv("data/cust_frequency_features2018.csv")
+		if os.path.isfile("data/cust_frequency_features2017.csv"):
+			cust_features = pd.read_csv("data/cust_frequency_features2017.csv")
 		else:
-			print("FILE NOT FOUND: data/cust_frequency_features2018.csv")
+			print("FILE NOT FOUND: data/cust_frequency_features2017.csv")
 		return cust_features
 
 	def create_cus_bond_features(self):
@@ -66,10 +66,10 @@ class Classifier(object):
 			to the pair custonmer - bond.
 		"""
 
-		if os.path.isfile("data/bondcust_frequency_features2018.csv"):
-			bondcust_features = pd.read_csv("data/bondcust_frequency_features2018.csv")
+		if os.path.isfile("data/bondcust_frequency_features2017.csv"):
+			bondcust_features = pd.read_csv("data/bondcust_frequency_features2017.csv")
 		else:
-			print("FILE NOT FOUND: data/bondcust_frequency_features2018.csv")
+			print("FILE NOT FOUND: data/bondcust_frequency_features2017.csv")
 
 		return bondcust_features
 
@@ -100,6 +100,7 @@ class Classifier(object):
 		print("CREATED TRAIN SET; STARTING TO FIT THE MODEL..")
 
 		# Split Features and Labels
+		print("TRAIN FEATURES")
 		print(train.describe())
 		X, y = self.features_labels_split_df(train)
 
@@ -156,12 +157,16 @@ class Classifier(object):
 
 	def predict_test(self, test):
 		test = self.create_set(test)
+		print("TEST FEATURES")
+		print(test.describe())
 		X_test, y_test = self.features_labels_split_df(test)
 		y_pred = self.predict(X_test)
 
 		return y_pred
 	def evaluate(self, test):
 		test = self.create_set(test)
+		print("TEST FEATURES")
+		print(test.describe())
 		X_test, y_test = self.features_labels_split_df(test)
 		y_pred = self.predict(X_test)
 		print(y_pred)

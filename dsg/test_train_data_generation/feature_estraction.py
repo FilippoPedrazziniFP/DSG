@@ -9,278 +9,82 @@ class FeatureExtractor(object):
         self.chall = chall
         self.trade = trade.rename(index=str, columns={"TradeDateKey": "DateKey"})
 
+    def get_customer_frequency_features(self, col_suf='Cust', key=["CustomerIdx"], n_weeks = 8):
 
-    def get_customer_frequency_features(self):
+        return self.exract_features(col_suf, key, n_weeks)
 
-        keys = self.trade[["CustomerIdx","DateKey"]]
-        keys.loc[:,"DateKey"] = keys["DateKey"].apply(lambda x: self.monday_date(x))
-        keys = keys.append(self.chall[["CustomerIdx","DateKey"]])
-        keys = keys.drop_duplicates(["CustomerIdx","DateKey"])
+    def get_bond_frequency_features(self, col_suf='Bond', key=["IsinIdx"], n_weeks = 8):
 
-        values = self.trade[["CustomerIdx","DateKey","BuySell"]]
-        values.loc[:,"Date_BuySell"] = values.apply(lambda x: (x["DateKey"], x["BuySell"]), axis=1)
-        values = values.groupby("CustomerIdx")["Date_BuySell"].apply(list)
-
-        key_values = keys.join(values, on="CustomerIdx")
-        key_values = key_values.fillna(value={"Date_BuySell": 0})
-
-        key_values.loc[:, "CustBuy1w"] = key_values\
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-                            else sum(1 for t in x["Date_BuySell"][:100]
-                                        if t[0] >= self.days_before(x["DateKey"], 7)
-                                        and t[1] == 'Buy'),
-                                        axis = 1)
-
-        key_values.loc[:, "CustBuy2w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 14)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "CustBuy1m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 30)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "CustBuy2m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 60)
-                 and t[1] == 'Buy'),
-                   axis=1)
+        return self.exract_features(col_suf, key, n_weeks)
 
 
-        key_values.loc[:, "CustSell1w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 7)
-                 and t[1] == 'Sell'),
-                   axis=1)
+    def get_customer_bond_frequency_features(self, col_suf='CustBond', key=["CustomerIdx", "IsinIdx"], n_weeks = 8):
 
-        key_values.loc[:, "CustSell2w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 14)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "CustSell1m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 30)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "CustSell2m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 60)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "CustLastBuy"] = key_values \
-            .apply(lambda x: 100 if x["Date_BuySell"] is 0
-        else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
-                          if t[1] == 'Buy']),
-                   axis=1)
-
-        key_values.loc[:, "CustLastSell"] = key_values \
-            .apply(lambda x: 100 if x["Date_BuySell"] is 0
-        else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
-                          if t[1] == 'Sell']),
-                   axis=1)
-
-        key_values = key_values.drop(["Date_BuySell"], axis=1)
+        return self.exract_features(col_suf, key, n_weeks)
 
 
-        return key_values
 
-    def get_bond_frequency_features(self):
+    def exract_features(self, col_suf, key, n_weeks):
 
-        keys = self.trade[["IsinIdx", "DateKey"]]
-        keys.loc[:, "DateKey"] = keys["DateKey"].apply(lambda x: self.monday_date(x))
-        keys = keys.append(self.chall[["IsinIdx","DateKey"]])
-        keys = keys.drop_duplicates(["IsinIdx", "DateKey"])
+        trade = self.trade
+        trade.loc[:, "DateKey"] = self.trade["DateKey"].apply(lambda x: self.monday_date(x))
 
-        values = self.trade[["IsinIdx", "DateKey", "BuySell"]]
-        values.loc[:, "Date_BuySell"] = values.apply(lambda x: (x["DateKey"], x["BuySell"]), axis=1)
-        values = values.groupby("IsinIdx")["Date_BuySell"].apply(list)
+        chall = self.chall
+        chall.loc[:, "DateKey"] = 20180423
 
-        key_values = keys.join(values, on="IsinIdx")
-        key_values = key_values.fillna(value={"Date_BuySell": 0})
-
-        key_values.loc[:, "BondBuy1w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 7)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondBuy2w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 14)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondBuy1m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 30)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondBuy2m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 60)
-                 and t[1] == 'Buy'),
-                   axis=1)
+        keys = trade[key + ["DateKey"]]
+        keys = keys.append(chall[key + ["DateKey"]])
+        keys = keys.drop_duplicates(key + ["DateKey"])
 
 
-        key_values.loc[:, "BondSell1w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 7)
-                 and t[1] == 'Sell'),
-                   axis=1)
+        shifted_trade = trade[key + ["DateKey", "BuySell"]]
+        shifted_trade.loc[:, "DateKey"] = shifted_trade["DateKey"].apply(lambda x: self.days_after(x, 7))
 
-        key_values.loc[:, "BondSell2w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 14)
-                 and t[1] == 'Sell'),
-                   axis=1)
+        featureBuy = shifted_trade[shifted_trade["BuySell"] == "Buy"].groupby(key + ["DateKey"]).size().reset_index(
+            name=(
+                '%sBuy1w' % col_suf))
 
-        key_values.loc[:, "BondSell1m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 30)
-                 and t[1] == 'Sell'),
-                   axis=1)
+        featureSell = shifted_trade[shifted_trade["BuySell"] == "Sell"].groupby(key + ["DateKey"]).size().reset_index(
+            name=(
+                '%sSell1w' % col_suf))
 
-        key_values.loc[:, "BondSell2m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 60)
-                 and t[1] == 'Sell'),
-                   axis=1)
+        featureBuy = featureBuy[key + ["DateKey", ('%sBuy1w' % col_suf)]]
+        featureSell = featureSell[key + ["DateKey", ('%sSell1w' % col_suf)]]
 
+        seq = keys.merge(featureBuy, on=key + ["DateKey"], how='left')
+        seq = seq.merge(featureSell, on=key + ["DateKey"], how='left')
 
-        key_values.loc[:, "BondLastBuy"] = key_values \
-            .apply(lambda x: 100 if x["Date_BuySell"] is 0
-        else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
-                          if t[1] == 'Buy']),
-                   axis=1)
+        for i in range(1, n_weeks + 1):
 
-        key_values.loc[:, "BondLastSell"] = key_values \
-            .apply(lambda x: 100 if x["Date_BuySell"] is 0
-        else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
-                          if t[1] == 'Sell']),
-                   axis=1)
+            seq2 = seq[key + ["DateKey", ("%sBuy1w" % col_suf), ("%sSell1w" % col_suf)]]
+            seq2["DateKey"] = seq2["DateKey"].apply(lambda x: self.days_before(x, i * 7))
+            seq2 = seq2.rename(columns={("%sBuy1w" % col_suf): col_suf + "Buy" + str(i) + "WeeksBefore", (
+                "%sSell1w" % col_suf): col_suf + "Sell" + str(i) + "WeeksBefore"})
+            seq = seq.merge(seq2, on=key + ["DateKey"], how="left")
 
-        key_values = key_values.drop(["Date_BuySell"], axis=1)
+        seq = seq.fillna(0)
 
-        return key_values
+        trade = self.trade
+        trade.loc[:, "Relative_Week"] = self.trade["DateKey"].apply(lambda x: self.days_after(self.monday_date(x), 7))
+        trade = trade.loc[trade.groupby(key + ["Relative_Week", "BuySell"])["DateKey"].idxmin()]
+        trade["Days_Before"] = trade.apply(lambda x: self.days_dist(x["Relative_Week"], x["DateKey"]), axis=1)
 
-    def get_bond_cust_frequency_features(self):
+        featureBuy = trade[trade["BuySell"] == "Buy"]
+        featureBuy = featureBuy.rename(index=str, columns={"Days_Before": ("%sLastBuy" % col_suf)})
+        featureBuy = featureBuy[key + ["DateKey", ('%sLastBuy' % col_suf)]]
 
-        keys = self.trade[["CustomerIdx","IsinIdx", "DateKey"]]
-        keys.loc[:, "DateKey"] = keys["DateKey"].apply(lambda x: self.monday_date(x))
-        keys = keys.append(self.chall[["CustomerIdx","IsinIdx","DateKey"]])
-        keys = keys.drop_duplicates(["CustomerIdx","IsinIdx", "DateKey"])
+        featureSell = trade[trade["BuySell"] == "Sell"]
+        featureSell = featureSell.rename(index=str, columns={"Days_Before": ("%sLastSell" % col_suf)})
+        featureSell = featureSell[key + ["DateKey", ('%sLastSell' % col_suf)]]
 
-        values = self.trade[["CustomerIdx","IsinIdx", "DateKey", "BuySell"]]
-        values.loc[:, "Date_BuySell"] = values.apply(lambda x: (x["DateKey"], x["BuySell"]), axis=1)
-        values = values.groupby(["CustomerIdx","IsinIdx"])["Date_BuySell"].apply(list)
+        seq = seq.merge(featureBuy, on=key + ["DateKey"], how="left")
+        seq = seq.merge(featureSell, on=key + ["DateKey"], how="left")
+        seq = seq.fillna(100)
 
-        key_values = keys.join(values, on=["CustomerIdx","IsinIdx"])
-        key_values = key_values.fillna(value={"Date_BuySell": 0})
+        seq.loc[seq["DateKey"] == 20180423, "DateKey"] = 20180424
 
-        key_values.loc[:, "BondCustBuy1w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 7)
-                 and t[1] == 'Buy'),
-                   axis=1)
+        return seq
 
-        key_values.loc[:, "BondCustBuy2w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 14)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustBuy1m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 30)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustBuy2m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 60)
-                 and t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustTotBuy"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[1] == 'Buy'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustSell1w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 7)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustSell2w"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 14)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustSell1m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 30)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustSell2m"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[0] >= self.days_before(x["DateKey"], 60)
-                 and t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustTotSell"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[1] == 'Sell'),
-                   axis=1)
-
-        key_values.loc[:, "BondCustLastBuy"] = key_values \
-            .apply(lambda x: 100 if x["Date_BuySell"] is 0
-        else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
-                 if t[1] == 'Buy']),
-                   axis=1)
-
-        key_values.loc[:, "BondCustLastSell"] = key_values \
-            .apply(lambda x: 100 if x["Date_BuySell"] is 0
-        else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
-                          if t[1] == 'Sell']),
-                   axis=1)
-        key_values = key_values.drop(["Date_BuySell"], axis=1)
-        return key_values
 
     def monday_date(self, date):
         date = int(date)
@@ -361,22 +165,23 @@ if __name__ == "__main__" :
     chall_df = pd.read_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/Challenge_20180423.csv")
 
 
-    feature_extractor = FeatureExtractor(trade_df[(trade_df["TradeDateKey"] > 20171100) & (trade_df["TradeStatus"] != 'Holding')], chall_df)
+    feature_extractor = FeatureExtractor(trade_df[(trade_df["TradeStatus"] != 'Holding')], chall_df)
 
     t = time.time()
     print("Extracting Customer Features")
     cust_frequency = feature_extractor.get_customer_frequency_features()
-    cust_frequency.to_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/cust_frequency_features2018.csv", index=False)
+    cust_frequency.to_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/cust_frequency_features2017.csv", index=False)
     print("extracted in {} seconds".format(time.time() - t))
+
 
     t = time.time()
     print("Extracting Bond Features")
     bond_frequency = feature_extractor.get_bond_frequency_features()
-    bond_frequency.to_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/bond_frequency_features2018.csv", index=False)
+    bond_frequency.to_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/bond_frequency_features2017.csv", index=False)
     print("extracted in {} seconds".format(time.time() - t))
 
     t = time.time()
     print("Extracting Customer-Bond Features")
-    cust_bond_frequency = feature_extractor.get_bond_cust_frequency_features()
-    cust_bond_frequency.to_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/bondcust_frequency_features2018.csv", index=False)
+    cust_bond_frequency = feature_extractor.get_customer_bond_frequency_features()
+    cust_bond_frequency.to_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/bondcust_frequency_features2017.csv", index=False)
     print("extracted in {} seconds".format(time.time() - t))
