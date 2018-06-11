@@ -52,11 +52,6 @@ class FeatureExtractor(object):
                  and t[1] == 'Buy'),
                    axis=1)
 
-        key_values.loc[:, "CustTotBuy"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[1] == 'Buy'),
-                   axis=1)
 
         key_values.loc[:, "CustSell1w"] = key_values \
             .apply(lambda x: 0 if x["Date_BuySell"] is 0
@@ -86,12 +81,6 @@ class FeatureExtractor(object):
                  and t[1] == 'Sell'),
                    axis=1)
 
-        key_values.loc[:, "CustTotSell"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[1] == 'Sell'),
-                   axis=1)
-
         key_values.loc[:, "CustLastBuy"] = key_values \
             .apply(lambda x: 100 if x["Date_BuySell"] is 0
         else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
@@ -103,6 +92,8 @@ class FeatureExtractor(object):
         else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
                           if t[1] == 'Sell']),
                    axis=1)
+
+        key_values = key_values.drop(["Date_BuySell"], axis=1)
 
 
         return key_values
@@ -149,11 +140,6 @@ class FeatureExtractor(object):
                  and t[1] == 'Buy'),
                    axis=1)
 
-        key_values.loc[:, "BondTotBuy"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[1] == 'Buy'),
-                   axis=1)
 
         key_values.loc[:, "BondSell1w"] = key_values \
             .apply(lambda x: 0 if x["Date_BuySell"] is 0
@@ -183,11 +169,6 @@ class FeatureExtractor(object):
                  and t[1] == 'Sell'),
                    axis=1)
 
-        key_values.loc[:, "BondTotSell"] = key_values \
-            .apply(lambda x: 0 if x["Date_BuySell"] is 0
-        else sum(1 for t in x["Date_BuySell"][:100]
-                 if t[1] == 'Sell'),
-                   axis=1)
 
         key_values.loc[:, "BondLastBuy"] = key_values \
             .apply(lambda x: 100 if x["Date_BuySell"] is 0
@@ -200,6 +181,8 @@ class FeatureExtractor(object):
         else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
                           if t[1] == 'Sell']),
                    axis=1)
+
+        key_values = key_values.drop(["Date_BuySell"], axis=1)
 
         return key_values
 
@@ -296,7 +279,7 @@ class FeatureExtractor(object):
         else min([100] + [self.days_dist(x["DateKey"], t[0]) for t in x["Date_BuySell"]
                           if t[1] == 'Sell']),
                    axis=1)
-
+        key_values = key_values.drop(["Date_BuySell"], axis=1)
         return key_values
 
     def monday_date(self, date):

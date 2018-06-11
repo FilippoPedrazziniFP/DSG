@@ -9,7 +9,7 @@ class DataGenerator(object):
         super(DataGenerator, self).__init__()
 
 
-    def generate_train_dataset(self, trade_df, from_day=20180000, till_day=20180409):
+    def generate_train_dataset(self, trade_df, from_day=20180205, till_day=20180414):
 
         trade_df = trade_df.rename(index=str, columns={"TradeDateKey": "DateKey"})
         trade_df = trade_df[trade_df["TradeStatus"] != "Holding"]
@@ -25,18 +25,21 @@ class DataGenerator(object):
             positive_samples = positive_samples[positive_samples["DateKey"] < till_day]
 
 
-        positive_samples = positive_samples.drop_duplicates(["CustomerIdx", "IsinIdx", "BuySell","DateKey"]).sample(frac=0.95)
+        positive_samples = positive_samples.drop_duplicates(["CustomerIdx", "IsinIdx", "BuySell","DateKey"])
+
+
         positive_samples["CustomerInterest"] = 1
 
-        key_date = self.monthsbefore(from_day,6)
+        key_date = 20180000#self.monthsbefore(from_day,2)
 
-        negative_samples_new = trade_df[trade_df["DateKey"] >= key_date].sample(frac=0.95)
+        negative_samples = trade_df[trade_df["DateKey"] >= key_date].drop_duplicates(["CustomerIdx","IsinIdx"])
 
-        negative_samples_old = trade_df[trade_df["DateKey"] < key_date].sample(frac=0.10)
-
-
-        negative_samples = negative_samples_new.append(negative_samples_old).sample(int(positive_samples.shape[0]*1.2)).reset_index(drop=True)
-
+        negative_samples = negative_samples[["CustomerIdx", "IsinIdx"]]
+        negative_samples = negative_samples.sample(int(positive_samples.shape[0]/1.9)).reset_index(drop=True)
+        negative_samples_copy = negative_samples.copy()
+        negative_samples["BuySell"] = "Buy"
+        negative_samples_copy["BuySell"] = "Sell"
+        negative_samples = negative_samples.append(negative_samples_copy)
         negative_samples["DateKey"] = positive_samples["DateKey"].sample(negative_samples.shape[0], replace=True).reset_index(drop=True)
 
         negative_samples["CustomerInterest"] = 0
@@ -66,11 +69,12 @@ class DataGenerator(object):
         positive_samples = positive_samples.drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
         positive_samples["CustomerInterest"] = 1
 
-        negative_samples_new = trade_df[trade_df["DateKey"] >= key_date].sample(frac=0.95).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
-
-        negative_samples_old = trade_df[trade_df["DateKey"] < key_date].sample(frac=0.10).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
-
-        negative_samples = negative_samples_new.append(negative_samples_old).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
+        negative_samples = trade_df[trade_df["DateKey"] >= key_date].drop_duplicates(["CustomerIdx","IsinIdx"])
+        negative_samples = negative_samples[["CustomerIdx","IsinIdx"]]
+        negative_samples_copy = negative_samples.copy()
+        negative_samples["BuySell"] = "Buy"
+        negative_samples_copy["BuySell"] = "Sell"
+        negative_samples = negative_samples.append(negative_samples_copy)
         negative_samples["CustomerInterest"] = 0
 
         merged = positive_samples.append(negative_samples).drop_duplicates(["CustomerIdx","IsinIdx","BuySell"])
@@ -82,11 +86,9 @@ class DataGenerator(object):
 
 
 
-    def generate_submission_dataset(self, trade_df, from_day=20171022, till_day=None, out_rows=None, imb_perc=None,
-                               remove_holding=True, remove_price=True, remove_not_eur=True, remove_trade_status=True,):
+    def generate_submission_dataset(self, trade_df, from_day=20180101, till_day=None):
 
-        return self.generate_train_dataset(trade_df, from_day, till_day, out_rows, imb_perc,
-                                     remove_holding, remove_price, remove_not_eur, remove_trade_status)
+        return self.generate_train_dataset(trade_df, from_day, till_day)
 
     def generate_validation_dataset(self, trade_df, from_day=20180409, till_day=20180414, set_date=20180410, key_date = 20171022):
 
@@ -135,4 +137,4 @@ class DataGenerator(object):
 if __name__ == "__main__":
     trade_df = pd.read_csv("/Users/claudioarcidiacono/PycharmProjects/DSG/data/Trade.csv")
     train = DataGenerator().generate_train_dataset(trade_df)
-    print(train.shape)
+    print(train.describe())
