@@ -4,26 +4,17 @@ import tensorflow as tf
 import time
 import pandas as pd
 
-from dsg.data_loader import DataLoader
 from dsg.classification.classifier_preprocessing import ClassifierPreprocessor
 from dsg.classification.classifier import CATBoost, LR
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
-
+parser.add_argument('--train', type=bool, default=True, 
+	help='If True train and validate the model locally.')
+parser.add_argument('--sub', type=bool, default=True, 
+	help='If True train the model on the entire data and creates the submission.')
 """ General Parameters """
 args = parser.parse_args()
-
-def create_submission_file(loader, preprocessor, model):
-	test = loader.load_challenge_data()
-	print(test.head())
-	X = preprocessor.test_transform(test)
-	print(X[0:5])
-	preds = model.predict(X)
-	submission = loader.load_submission_file()
-	submission["CustomerInterest"] = preds
-	submission.to_csv(util.SUBMISSION, index=False)
-	return
 
 def main():
 
@@ -31,60 +22,49 @@ def main():
 	np.random.seed(0)
 	tf.set_random_seed(0)
 
-	start = time.clock()
-
-	# Load the Data
-	loader = DataLoader()
-	df = loader.load_trade_data()
+	t = time.clock()
 
 	# Clean Trade Data
-	preprocessor = ClassifierPreprocessor(
-		test_date=20180416,
-		val_date=20180409,
-		train_date=20180402
-		)
-	X_train, y_train, test, val, X, y = preprocessor.fit_transform(df)
+	preprocessor = ClassifierPreprocessor()
+	X_train, y_train, X_test, y_test, X_val, y_val, X, y, X_challenge, submission \
+		= preprocessor.fit_transform()
 
-	print("TRAIN")
-	print(X_train.head())
-	print(X_train.describe())
-	print(y_train.head())
-	print(y_train.describe())
-	print("TEST")
-	print(test.head())
-	print(test.describe())
-
-	preproc_time = time.clock() - start
-	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
+	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", time.clock() - t)
 
 	# Fit and Evaluate the model
 	model = CATBoost()
-	model.fit(X_train, y_train)
 
-	# Evaluate the model
-	score = model.evaluate(val)
-	print("TEST SCORE: ", score)
+	if args.train == True:
 
-	# Evaluate the model
-	# score = model.evaluate(val)
-	# print("VAL SCORE: ", score)
-	
-	fit_model = time.clock() - preproc_time
-	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
+		t = time.clock()
+		
+		print(X_train.shape)
+		print(y_train.shape)
+		model.fit(X_train, y_train)
+		
+		print("TRAINED FINISHED, STARTING TEST..")
 
-	# exit()
+		# Evaluate the model
+		score = model.evaluate(X_test, y_test)
+		print("TEST SCORE: ", score)
+		
+		print("TIME TO FIT AND EVALUATE THE MODEL: ", time.clock() - t)
 
-	# Fit on the entire data 
-	model.fit(X, y)
-	
-	fit_data = time.clock() - fit_model
-	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
-	
-	# Create the submission file
-	create_submission_file(loader, preprocessor, model)
+	if args.sub == True:
 
-	submission_time = time.clock() - fit_model
-	print("TIME TO PREDICT AND CREATE SUBMISSION FILE: ", submission_time)
+		t = time.clock()
+
+		# Fit on the entire data 
+		print(X.shape)
+		print(y.shape)
+		model.fit(X, y)
+				
+		# Create the submission file
+		preds = model.predict(X_challenge)
+		submission["CustomerInterest"] = preds
+		submission.to_csv(util.SUBMISSION, index=False)
+
+		print("TIME TO FIT THE ENTIRE DATA and CREATE SUBMISSION: ", time.clock() - t)
 
 	return
 

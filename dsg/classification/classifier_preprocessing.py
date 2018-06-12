@@ -1,34 +1,19 @@
 import pandas as pd
 import dsg.util as util
 from dsg.data_generation.data_generator import FakeGeneratorFilo
+import pickle
 
 class ClassifierPreprocessor(object):
-	def __init__(self, test_date, 
-			val_date, train_date):
+	def __init__(self):
 		super(ClassifierPreprocessor, self).__init__()
-		self.test_date = test_date
-		self.val_date = val_date
-		self.train_date = train_date
 
 	def fit(self, df):
 		return
 
-	def test_transform(self, df):
-		df = df.drop(["PredictionIdx", "DateKey"], axis=1)
-		df = pd.get_dummies(df, columns=["BuySell"])
-		df = df[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
-
-		print("TEST")
-		print(df.head())
-		print(df.describe())
-
-		X = df.values		
-		return X
-
 	def transform(self, df):
 		return
 
-	def fit_transform(self, df):
+	def fit_transform(self):
 		"""
 			The method drops the useless columns from
 			the DataFrame and splits the data into train 
@@ -43,31 +28,44 @@ class ClassifierPreprocessor(object):
 
 		# Train, test, val split
 		data_generator = FakeGeneratorFilo()
-		
-		# Train Data
-		X_train, y_train = data_generator.generate_train_set_classification(
-			df=df, 
-			from_date=self.train_date, 
-			to_date=self.val_date
-			)
-		
-		# Generate Test Set
-		test = data_generator.generate_test_set(
-			df=df, 
-			from_date=self.test_date
-			)
-		val = data_generator.generate_test_set(
-			df=df, 
-			from_date=self.val_date,
-			to_date=self.test_date
-			)
-		
-		# Entire Train
-		X, y = data_generator.generate_train_set_classification(
-			df=df,
-			from_date=self.test_date)
 
-		return X_train, y_train, test, val, X, y
+		try:
+			X_train = pickle.load(open("X_train.pkl", "rb"))
+			print(X_train.shape)
+			
+			y_train = pickle.load(open("y_train.pkl", "rb"))
+			print(y_train.shape)
+			
+			X_test = pickle.load(open("X_test.pkl", "rb"))
+			print(X_test.shape)
+			
+			y_test = pickle.load(open("y_test.pkl", "rb"))
+			print(y_test.shape)
+			
+			X_val = pickle.load(open("X_val.pkl", "rb"))
+			print(X_val.shape)
+			
+			y_val = pickle.load(open("y_val.pkl", "rb"))
+			print(y_val.shape)
+			
+			X = pickle.load(open("X.pkl", "rb"))
+			print(X.shape)
+			
+			y = pickle.load(open("y.pkl", "rb"))
+			print(y.shape)
+
+			X_challenge = pickle.load(open("X_challenge.pkl", "rb"))
+			print(X_challenge.shape)
+		except:
+			# Generate Train Test and Validation
+			X_train, y_train, X_test, y_test, X_val, y_val, X, y, \
+				X_challenge = data_generator.generate_train_test_val()
+
+		# Load Submission file
+		submission = pd.read_csv(util.SAMPLE_SUBMISSION)
+
+		return X_train, y_train, X_test, y_test, X_val, y_val, \
+			X, y, X_challenge, submission 
 
 	def fit_transform_claudio(self, df):
 		return

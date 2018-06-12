@@ -5,6 +5,7 @@ import time
 import pandas as pd
 
 from dsg.data_loader import DataLoader
+from dsg.data_generation.data_generator import FakeGeneratorFilo
 from dsg.recommenders.urm_preprocessing import URMPreprocessing
 from dsg.recommenders.collaborative import SVDRec, AsynchSVDRec, SimpleKNN, NMFAlgo, Slope, BaselineKNN, Clustering
 import dsg.util as util
@@ -39,11 +40,11 @@ def main():
 
 	# Clean Trade Data
 	preprocessor = URMPreprocessing(
-		test_date=20180412,
-		val_date=20180405,
-		train_date=20180328
+		test_date=20180415,
+		val_date=20180408,
+		train_date=20180401
 		)
-	train, test, val, data = preprocessor.fit_transform_claudio(df)
+	train, test, val, data = preprocessor.fit_transform(df)
 
 	print("TRAIN")
 	print(train.head())
@@ -61,16 +62,21 @@ def main():
 
 	print("TRAINING FINISHED; STARTING VALIDATION..")
 
-	# Cross Validation
-	# scores = model.cross_validation(train)
-	# print(scores)
+	print(val.describe())
+	print(val.head())
+	# Evaluate the model
+	score = model.evaluate(val)
+	print("TEST SCORE: ", score)
 
-	# Model Tuning
-	# model.tune(train)
+	# Evaluate the model on Claudio Test Set
+	generator = FakeGeneratorFilo()
+	test_claudio = generator.generate_test_claudio(df)
+	print(test_claudio.describe())
+	print(test_claudio.head())
 
 	# Evaluate the model
-	score = model.evaluate(test)
-	print("TEST SCORE: ", score)
+	score = model.evaluate(test_claudio)
+	print("TEST SCORE CLAUDIO: ", score)
 	
 	fit_model = time.clock() - preproc_time
 	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
