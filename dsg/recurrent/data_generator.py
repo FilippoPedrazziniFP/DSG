@@ -1,17 +1,18 @@
 import pandas as pd
 import matplotlib
 import time
+from itertools import islice
 import pickle
 import progressbar
 import numpy as np
 
 TRADE_DATA = "../../data/Trade.csv"
-CHALLENGE_DATA = "./data/Challenge_20180423.csv"
+CHALLENGE_DATA = "../../data/Challenge_20180423.csv"
 WEEK_LEN = 5
 MONTH_LEN = 6
 WEEK_MONTH = 4
 FEATURES_MONTH = 2
-NUM_WEEKS = 16
+NUM_WEEKS = 4
 
 class DataGenerator(object):
     def __init__(self):
@@ -19,6 +20,23 @@ class DataGenerator(object):
         self.customer_dictionary = pickle.load(open("cust_dict.pkl", "rb"))
         self.bond_dictionary = pickle.load(open("bond_dict.pkl", "rb"))
         self.cus_bond_dictionary = pickle.load(open("cus_bond_dict.pkl", "rb"))
+        self.debug_dictionaries()
+
+    def take(self, n, iterable):
+        return list(islice(iterable, n))
+
+    def print_dictionary(self, dictionary=None):
+        n_items = self.take(100, dictionary.items())
+        for key, val in n_items:
+            print(key, val)
+        return
+
+    def debug_dictionaries(self):
+        # self.print_dictionary(self.customer_dictionary)
+        feat = self.customer_dictionary[(0, 1)]
+        # print(feat)
+        # exit()
+        return
 
     def generate_customer_features(self, date, customer_id):
         try:
@@ -34,7 +52,7 @@ class DataGenerator(object):
             bond_features = self.bond_dictionary[(date, bond_id)]
             bond_features = np.asarray(bond_features)
         except KeyError:
-            bond_features = np.array([0.0, 0.0, 0.0])
+            bond_features = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
         return bond_features
 
@@ -55,12 +73,17 @@ class DataGenerator(object):
         bond_id = sample[1]
         sequence = []
         for i in range(date - FEATURES_MONTH*WEEK_LEN*WEEK_MONTH, date, WEEK_LEN):
+            sample_seq = []
             cust_feature = self.generate_customer_features(i, customer_id)
+            sample_seq.extend(cust_feature)
             bond_feature = self.generate_bond_features(i, bond_id)
+            sample_seq.extend(bond_feature)
             cust_bond_feature = self.generate_customer_bond_features(i, customer_id, bond_id)
-            sample = np.array([cust_feature, bond_feature, cust_bond_feature, sample[2], sample[3]])
-            print(sample)
-            sequence.append(sample)
+            sample_seq.extend(cust_bond_feature)
+            sample_seq.extend([sample[2].astype("float32")])
+            sample_seq.extend([sample[3].astype("float32")])
+            sample_seq = np.asarray(sample_seq)
+            sequence.append(sample_seq)
             
         sequence = np.asarray(sequence)
         return sequence
@@ -74,7 +97,6 @@ class DataGenerator(object):
         labels = []
         for sample in df:
             feature = self.generate_sequence(date, sample)
-            print(feature.shape)
             features.append(feature)
             labels.append(sample[-1])
        
@@ -148,14 +170,12 @@ class DataGenerator(object):
     def create_weekly_data(self, df, max_date):
         data = []
         for i in progressbar.progressbar(range(max_date - WEEK_LEN*NUM_WEEKS, max_date, WEEK_LEN)):
-            print("WEEK: ", i)
             week = self.generate_labels_classification(
                 df=df,
                 from_date=i,
                 to_date=i+WEEK_LEN,
                 from_date_label=i-MONTH_LEN*WEEK_LEN*WEEK_MONTH
                 )
-            print(week.shape)
             data.append((i, week))
         with open('data.pkl', 'wb') as f:
             pickle.dump(data, f)
@@ -177,32 +197,21 @@ class DataGenerator(object):
         """
         features = []
         labels = []
+
         for i, df in progressbar.progressbar(data):
             X, y = self.generate_samples(i, df.values)
-            print(X.shape)
-            print(y.shape)
             features.append(X)
             labels.append(y)
 
         features = np.concatenate(features, axis=0)
         labels = np.concatenate(labels, axis=0)
-        print(features.shape)
-        print(labels.shape)
         with open('features_' + kind + '.pkl', 'wb') as f:
             pickle.dump(features, f)
         with open('labels_' + kind + '.pkl', 'wb') as f:
             pickle.dump(labels, f)
         return features, labels
 
-    def challenge_transform(self, df):
-        
-        df = df.drop(["PredictionIdx", "DateKey"], axis=1)
-        df = pd.get_dummies(df, columns=["BuySell"])
-        df = df[['CustomerIdx', 'IsinIdx', "BuySell_Buy", 
-            "BuySell_Sell", 'CustomerInterest']]
-        return df
-
-    def generate_challenge_set(self, data, kind="challenge"):
+    def generate_entire_set(self, data):
         """
             The method generates a training data starting 
             from a list of dataframes which represent the
@@ -211,17 +220,36 @@ class DataGenerator(object):
             train_samples : numpy array (samples, 8, features)
         """
         features = []
+        labels = []
+
         for i, df in progressbar.progressbar(data):
             X, y = self.generate_samples(i, df.values)
-            print(X.shape)
-            print(y.shape)
             features.append(X)
-
+            labels.append(y)
+            with open('entire_data/features_' + str(i) + '_entire.pkl', 'wb') as f:
+                pickle.dump(X, f)
+            with open('entire_data/labels_' + str(i) + '_entire.pkl', 'wb') as f:
+                pickle.dump(y, f)
+        
         features = np.concatenate(features, axis=0)
-        print(features.shape)
+        labels = np.concatenate(labels, axis=0)
+        return features, labels
+
+    def generate_single_set(self, data, kind="test"):        
+        X, y = self.generate_samples(data[0], data[1].values)
+        
         with open('features_' + kind + '.pkl', 'wb') as f:
-            pickle.dump(features, f)        
-        return features
+            pickle.dump(X, f)
+        with open('labels_' + kind + '.pkl', 'wb') as f:
+            pickle.dump(y, f)
+        return X, y
+
+    def challenge_transform(self, df):
+        df = df.drop(["PredictionIdx", "DateKey"], axis=1)
+        df = pd.get_dummies(df, columns=["BuySell"])
+        df = df[['CustomerIdx', 'IsinIdx', "BuySell_Buy", 
+            "BuySell_Sell", 'CustomerInterest']]
+        return df
 
 def main():
         
@@ -250,6 +278,8 @@ def main():
     # Converting Dates
     max_date = dictionary_date[20180422]
     print("MAX_DATE: ", max_date)
+    max_date = max_date + 2
+    print("CLIPPED MAX DATE: ", max_date)
 
     # Transform DateKey into a column from 0 to 1000
     df["TradeDateKey"] = df["TradeDateKey"].apply(lambda x: dictionary_date[x])
@@ -271,25 +301,66 @@ def main():
         print(df.shape)
 
     print("GENERATING TRAIN SET...")
-    X_train, y_train = generator.generate_set(train)
-    print("GENERATED TRAIN SET")
+    t = time.clock()
+    try:
+        X_train = pickle.load(open('features_train.pkl', 'rb'))
+        y_train = pickle.load(open('labels_train.pkl', 'rb'))
+    except:
+        X_train, y_train = generator.generate_set(train)
+        print(X_train.shape)
+        print(y_train.shape)
+    print("GENERATED TRAIN SET in: ", time.clock() - t)
 
     print("GENERATING TEST SET...")
-    X_test, y_test = generator.generate_set(test, kind="test")
-    print("GENERATED TEST SET")
+    t = time.clock()
+    try:
+        X_test = pickle.load(open('features_test.pkl', 'rb'))
+        y_test = pickle.load(open('labels_test.pkl', 'rb'))
+    except:
+        X_test, y_test = generator.generate_single_set(test, kind="test")
+        print(X_test.shape)
+        print(y_test.shape)
+    print("GENERATED TEST SET in: ", time.clock() - t)
 
     print("GENERATING VAL SET...")
-    X_val, y_val = generator.generate_set(val, kind="val")
-    print("GENERATED VAL SET")
+    t = time.clock()
+    try:
+        X_val = pickle.load(open('features_val.pkl', 'rb'))
+        y_val = pickle.load(open('labels_val.pkl', 'rb'))
+    except:
+        X_val, y_val = generator.generate_single_set(val, kind="val")
+        print(X_val.shape)
+        print(y_val.shape)
+    print("GENERATED VAL SET in: ", time.clock() - t)
 
     print("GENERATING ENTIRE SET...")
-    X, y = generator.generate_set(data, kind="entire")
-    print("GENERATED ENTIRE SET")
+    t = time.clock()
+    try: 
+        X = []
+        y = []
+        for i, df in data:
+            features = pickle.load(open('./entire_data/features_' + str(i) + '_entire.pkl', 'rb'))
+            labels = pickle.load(open('./entire_data/labels_' + str(i) + '_entire.pkl', 'rb'))
+            X.append(features)
+            y.append(labels)
+        X = np.concatenate(X, axis=0)
+        y = np.concatenate(y, axis=0)
+    except:
+        X, y = generator.generate_entire_set(data)
+        print(X.shape)
+        print(y.shape)
+    print("GENERATED ENTIRE SET in: ", time.clock() - t)
 
     # Load and Transform Challenge
-    challenge = pd.read_csv(CHALLENGE_DATA)
-    challenge = generator.challenge_transform(challenge)
-    X_challenge = generator.generate_challenge_set((max_date, challenge))
+    print("GENERATING CHALLENGE SET...")
+    t = time.clock()
+    try:
+        X_challenge = pickle.load(open('features_challenge.pkl', 'rb'))
+    except:
+        challenge = pd.read_csv(CHALLENGE_DATA)
+        challenge = generator.challenge_transform(challenge)
+        X_challenge = generator.generate_single_set((max_date, challenge), kind="challenge")
+    print("GENERATED CHALLENGE SET in: ", time.clock() - t)
     
     return
 

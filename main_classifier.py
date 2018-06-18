@@ -13,7 +13,6 @@ parser.add_argument('--train', type=bool, default=True,
 	help='If True train and validate the model locally.')
 parser.add_argument('--sub', type=bool, default=True, 
 	help='If True train the model on the entire data and creates the submission.')
-""" General Parameters """
 args = parser.parse_args()
 
 def main():

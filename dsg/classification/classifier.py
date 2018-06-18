@@ -86,11 +86,6 @@ class CATBoost(Classifier):
 		self.scaler.fit(X_train)
 		X_train = self.scaler.transform(X_train)
 
-		# Rebalance the Dataset
-		sm = SMOTE()
-		X_train, y_train = sm.fit_sample(X_train, y_train)
-
-
 		# Plot Distribution of Labels
 		# Explorer.plot_array(y_train)
 		print(y_train.mean())
@@ -98,7 +93,10 @@ class CATBoost(Classifier):
 		print(y_train.max())
 
 		# Fit the model
-		model = CatBoostClassifier(verbose=False)
+		model = CatBoostClassifier(
+			verbose=False, 
+			custom_metric="AUC"
+			)
 		model.fit(X_train, y_train)
 		return model
 

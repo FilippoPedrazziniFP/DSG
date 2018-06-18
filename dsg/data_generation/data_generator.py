@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from dsg.data_loader import DataLoader
 import pickle
+import random
 from sklearn.utils import shuffle
 
 class FakeGeneratorFilo(object):
@@ -164,82 +165,6 @@ class FakeGeneratorFilo(object):
 
 		shuffled = shuffle(merged).reset_index(drop=True)
 		return shuffled
-
-	def generate_test_set_new(self, df, from_date, to_date=None, from_date_label=20171122):
-		"""
-			The method creates a dataframe for testing purposes similar to the one 
-			of the competition. It uses the last 6 months interactions as negative labels.
-
-			@args
-				df : DataFrame -> entire Trade Table.
-				from_date : int -> corresponding tot the date in which 
-					we start the week of test.
-				from_date_label : int -> representing the starting date from
-					which we start to collect the negative samples.
-				to_date : int -> date representing the end of the week.
-			@return
-				test_set : DataFrame -> with 1 week of positive and negative 
-					samples from the week considered and the previous 6 months.
-		"""
-		# Delete Holding Values
-		df = df[df["TradeStatus"] != "Holding"]
-
-		# Drop Useless Columns
-		df = df.drop(["TradeStatus", "NotionalEUR", "Price"], axis=1)
-
-		# One Hot Encoding for Sell and Buy
-		df = pd.get_dummies(df, columns=['BuySell'])
-		
-		if to_date is None:
-			positive_samples = df[df["TradeDateKey"] >= from_date]
-			positive_samples_neg = df[df["TradeDateKey"] >= from_date]
-		else:
-			positive_samples = df[(df["TradeDateKey"] >= from_date) & (df["TradeDateKey"] < to_date)]
-			positive_samples_neg = df[(df["TradeDateKey"] >= from_date) & (df["TradeDateKey"] < to_date)]
-
-		print(positive_samples.describe())
-
-		positive_samples_neg["BuySell_Buy"] = positive_samples["BuySell_Sell"]
-		positive_samples_neg["BuySell_Sell"] = positive_samples["BuySell_Buy"]
-		positive_samples_neg["CustomerInterest"] = positive_samples_neg["CustomerInterest"]\
-            .apply(lambda x: 0 if x > 0 else x)
-		
-		# Negative Samples
-		negative_samples = df[(df["TradeDateKey"] >= from_date_label) & (df["TradeDateKey"] < from_date)]
-		negative_samples_neg = df[(df["TradeDateKey"] >= from_date_label) & (df["TradeDateKey"] < from_date)]
-
-		# Opposite Positive
-		positive_samples_neg["BuySell_Buy"] = negative_samples["BuySell_Sell"]
-		positive_samples_neg["BuySell_Sell"] = negative_samples["BuySell_Buy"]
-
-		# Double Negative Samples
-		negative_samples_neg = df[(df["TradeDateKey"] >= from_date_label) & (df["TradeDateKey"] < from_date)]
-		negative_samples_neg["BuySell_Buy"] = negative_samples["BuySell_Sell"]
-		negative_samples_neg["BuySell_Sell"] = negative_samples["BuySell_Buy"]
-
-		# Put to zero all the negative
-		negative_samples["CustomerInterest"] = negative_samples["CustomerInterest"]\
-			.apply(lambda x: 0 if x > 0 else x)
-		negative_samples_neg["CustomerInterest"] = negative_samples_neg["CustomerInterest"]\
-			.apply(lambda x: 0 if x > 0 else x)
-
-		# Concatanate Negative and Positive Samples
-		test_set = pd.concat([positive_samples, negative_samples, negative_samples_neg])
-		test_set = test_set.drop(["TradeDateKey"], axis=1)
-
-		# Unique Values
-		test_set = test_set.groupby(['CustomerIdx', 'IsinIdx', "BuySell_Sell", "BuySell_Buy"]).sum()
-		test_set = test_set.reset_index(level=['CustomerIdx', 'IsinIdx', "BuySell_Sell", "BuySell_Buy"])
-		test_set["CustomerInterest"] = test_set["CustomerInterest"].apply(lambda x: 1 if x > 1 else x)
-
-		# Reorder the columns
-		test_set = test_set[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
-
-		print(test_set.describe())
-		exit()
-
-		return test_set
-
 
 	def generate_test_set(self, df, from_date, to_date=None, from_date_label=20171122):
 		"""
@@ -415,6 +340,7 @@ class FakeGeneratorFilo(object):
 		# Load the Data
 		loader = DataLoader()
 		df = loader.load_trade_data()
+		# df_bond = loader.load_market_data()
 
 		# Reorder the data
 		df = df.sort_values("TradeDateKey", ascending=True)

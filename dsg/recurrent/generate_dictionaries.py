@@ -149,9 +149,9 @@ def main():
 	print(df_trade.describe())
 
 	# create_customer_dict(df_trade, max_date)
-	create_bond_dict(df_trade, max_date)
+	# create_bond_dict(df_trade, max_date)
 	# create_cus_bond_dict(df_trade, max_date)
-	# create_bond_dict_temporal_info(df_trade, df_market, max_date)
+	create_bond_dict_temporal_info(df_trade, df_market, max_date)
 
 	return
 

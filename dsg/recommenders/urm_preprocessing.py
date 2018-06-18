@@ -44,11 +44,11 @@ class URMPreprocessing(object):
 		train = data_generator.generate_train_set_svd(df, self.val_date)
 
 		# Generate Test Set
-		test = data_generator.generate_test_set_new(
+		test = data_generator.generate_test_set(
 			df=df, 
 			from_date=self.test_date
 			)
-		val = data_generator.generate_test_set_new(
+		val = data_generator.generate_test_set(
 			df=df, 
 			from_date=self.val_date,
 			to_date=self.test_date

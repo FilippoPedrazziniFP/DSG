@@ -10,28 +10,11 @@ from dsg.recurrent.lstm_preprocessing import SequencePreprocessor
 import dsg.util as util
 
 parser = argparse.ArgumentParser()
-""" General Parameters """
+parser.add_argument('--train', type=bool, default=True, 
+	help='If True train and validate the model locally.')
+parser.add_argument('--sub', type=bool, default=True, 
+	help='If True train the model on the entire data and creates the submission.')
 args = parser.parse_args()
-
-def predict_for_submission(X, preprocessor, model):
-	y_pred = []
-	for sample in data:
-		X = preprocessor.generate_sequence(sample)
-		X = preprocessor.normalize_features(X)
-		y = model.predict(X)
-		y_pred.append(y)
-	return y_pred
-
-def create_submission_file(loader, preprocessor, model):
-	test = loader.load_challenge_data()
-	print(test.head())
-	X = preprocessor.test_transform(test)
-	print(X[0:5])
-	preds = predict_for_submission(X, preprocessor, model)
-	submission = loader.load_submission_file()
-	submission["CustomerInterest"] = preds
-	submission.to_csv(util.SUBMISSION, index=False)
-	return
 
 def main():
 
@@ -39,56 +22,51 @@ def main():
 	np.random.seed(0)
 	tf.set_random_seed(0)
 
-	start = time.clock()
+	t = time.clock()
 
 	# Load the Data
 	loader = DataLoader()
 	df = loader.load_trade_data()
 
 	# Clean Trade Data
-	preprocessor = SequencePreprocessor(
-		test_date=20180416,
-		val_date=20180409,
-		train_date=20180402
-		)
-	X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(df)
+	preprocessor = SequencePreprocessor()
+	X_train, y_train, X_test, y_test, X_val, y_val, X, y, X_challenge, submission \
+		= preprocessor.fit_transform()
 
-	print("TRAIN")
-	print(X_train.head())
-	print(X_train.describe())
-	print(y_train.head())
-	print(y_train.describe())
-	print("TEST")
-	print(test.head())
-	print(test.describe())
-
-	preproc_time = time.clock() - start
-	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", preproc_time)
+	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", time.clock() - t)
 
 	# Fit and Evaluate the model
 	model = LSTMModel()
-	model.fit(X_train, y_train, X_val, y_val)
 
-	# Evaluate the model
-	score = model.evaluate(X_test, y_test)
-	print("TEST SCORE: ", score)
-	
-	fit_model = time.clock() - preproc_time
-	print("TIME TO FIT AND EVALUATE THE MODEL: ", fit_model)
+	if args.train == True:
 
-	exit()
+		t = time.clock()
+		
+		print(X_train.shape)
+		print(y_train.shape)
+		model.fit(X_train, y_train, X_val, y_val)
+		
+		print("TRAINED FINISHED, STARTING TEST..")
 
-	# Fit on the entire data 
-	model.fit(X, y)
-	
-	fit_data = time.clock() - fit_model
-	print("TIME TO FIT THE ENTIRE DATA: ", fit_data)
-	
-	# Create the submission file
-	create_submission_file(loader, preprocessor, model)
+		# Evaluate the model
+		score = model.evaluate(X_test, y_test)
+		print("TEST SCORE: ", score)
+		
+		print("TIME TO FIT AND EVALUATE THE MODEL: ", time.clock() - t)
 
-	submission_time = time.clock() - fit_model
-	print("TIME TO PREDICT AND CREATE SUBMISSION FILE: ", submission_time)
+	if args.sub == True:
+
+		t = time.clock()
+
+		# Restore model
+		model.restore()
+				
+		# Create the submission file
+		preds = model.predict(X_challenge)
+		submission["CustomerInterest"] = preds
+		submission.to_csv(util.SUBMISSION, index=False)
+
+		print("TIME TO FIT THE ENTIRE DATA and CREATE SUBMISSION: ", time.clock() - t)
 
 	return
 
