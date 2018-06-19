@@ -28,6 +28,8 @@ def main():
 	X_train, y_train, X_test, y_test, X_val, y_val, X, y, X_challenge, submission \
 		= preprocessor.fit_transform()
 
+	exit()
+
 	print("TIME TO LOAD AND PREPROCESS THE MODEL: ", time.clock() - t)
 
 	# Fit and Evaluate the model

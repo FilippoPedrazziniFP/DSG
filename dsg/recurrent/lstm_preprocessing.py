@@ -2,10 +2,25 @@ import dsg.util as util
 import numpy as np
 import pandas as pd
 import pickle
+from sklearn.preprocessing import StandardScaler
 
 class SequencePreprocessor(object):
 	def __init__(self):
 		super(SequencePreprocessor, self).__init__()
+
+	def define_scaler(self, X):
+		matrix = np.concatenate(X, axis=0)
+		self.scaler = StandardScaler()
+		self.scaler.fit(matrix)
+		return
+
+	def scale_data(self, X):
+		X_std = []
+		for sample in X:
+			sample = self.scaler.transform(sample)
+			X_std.append(sample)
+		X_std = np.asarray(X_std)
+		return X_std
 
 	def fit_transform(self):
 		"""
@@ -21,18 +36,22 @@ class SequencePreprocessor(object):
 		"""
 
 		X_train = pickle.load(open("./dsg/recurrent/features_train.pkl", "rb"))
+		self.define_scaler(X_train)
+		X_train = self.scale_data(X_train)
 		print(X_train.shape)
 		
 		y_train = pickle.load(open("./dsg/recurrent/labels_train.pkl", "rb"))
 		print(y_train.shape)
 		
 		X_test = pickle.load(open("./dsg/recurrent/features_test.pkl", "rb"))
+		X_test = self.scale_data(X_test)
 		print(X_test.shape)
 		
 		y_test = pickle.load(open("./dsg/recurrent/labels_test.pkl", "rb"))
 		print(y_test.shape)
 		
 		X_val = pickle.load(open("./dsg/recurrent/features_val.pkl", "rb"))
+		X_val = self.scale_data(X_val)
 		print(X_val.shape)
 		
 		y_val = pickle.load(open("./dsg/recurrent/labels_val.pkl", "rb"))
@@ -47,11 +66,13 @@ class SequencePreprocessor(object):
 			X.append(features)
 			y.append(labels)
 		X = np.concatenate(X, axis=0)
+		X = self.scale_data(X)
 		y = np.concatenate(y, axis=0)
 		print(X.shape)
 		print(y.shape)
 
 		X_challenge = pickle.load(open("./dsg/recurrent/features_challenge.pkl", "rb"))
+		X_challenge = self.scale_data(X_challenge)
 		print(X_challenge.shape)
 
 		# Load Submission file

@@ -4,11 +4,12 @@ from tensorflow.python.keras.optimizers import Adam
 from tensorflow.python.keras import backend as K
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import roc_auc_score
+import tflearn.objectives.roc_auc_score as roc_loss
 from tensorflow.python.keras.callbacks import Callback, ModelCheckpoint
 import logging
 
 class LSTMModel(object):
-	def __init__(self, epochs=10, batch_size=32, input_shape=(8, 14)):
+	def __init__(self, epochs=2, batch_size=32, input_shape=(8, 14)):
 		super(LSTMModel, self).__init__()
 		self.epochs = epochs
 		self.batch_size = batch_size
@@ -22,44 +23,49 @@ class LSTMModel(object):
 		return [ival, chk]
 
 	@staticmethod
-	def f1(y_true, y_pred):
-	    def recall(y_true, y_pred):
-	        """Recall metric.
-
-	        Only computes a batch-wise average of recall.
-
-	        Computes the recall, a metric for multi-label classification of
-	        how many relevant items are selected.
-	        """
-	        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-	        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-	        recall = true_positives / (possible_positives + K.epsilon())
-	        return recall
-
-	    def precision(y_true, y_pred):
-	        """Precision metric.
-
-	        Only computes a batch-wise average of precision.
-
-	        Computes the precision, a metric for multi-label classification of
-	        how many selected items are relevant.
-	        """
-	        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-	        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-	        precision = true_positives / (predicted_positives + K.epsilon())
-	        return precision
-	    precision = precision(y_true, y_pred)
-	    recall = recall(y_true, y_pred)
-	    return 2*((precision*recall)/(precision+recall+K.epsilon()))
+	def binary_crossentropy_with_ranking(y_true, y_pred):
+		""" Trying to combine ranking loss with numeric precision"""
+		# first get the log loss like normal
+		logloss = K.mean(K.binary_crossentropy(y_pred, y_true), axis=-1)
+		# next, build a rank loss
+		# clip the probabilities to keep stability
+		y_pred_clipped = K.clip(y_pred, K.epsilon(), 1-K.epsilon())
+		# translate into the raw scores before the logit
+		y_pred_score = K.log(y_pred_clipped / (1 - y_pred_clipped))
+		# determine what the maximum score for a zero outcome is
+		y_pred_score_zerooutcome_max = K.max(y_pred_score * (y_true <1))
+		# determine how much each score is above or below it
+		rankloss = y_pred_score - y_pred_score_zerooutcome_max
+		# only keep losses for positive outcomes
+		rankloss = rankloss * y_true
+		# only keep losses where the score is below the max
+		rankloss = K.square(K.clip(rankloss, -100, 0))
+		# average the loss for just the positive outcomes
+		rankloss = K.sum(rankloss, axis=-1) / (K.sum(y_true > 0) + 1)
+		# return (rankloss + 1) * logloss - an alternative to try
+		return rankloss + logloss
+		
+	@staticmethod
+	def soft_AUC_backend(y_true, y_pred):
+	    # Extract 1s
+	    pos_pred_vr = y_pred[y_true.nonzero()]
+	    # Extract zeroes
+	    neg_pred_vr = y_pred[K.eq(y_true, 0).nonzero()]
+	    # Broadcast the subtraction to give a matrix of differences  between pairs of observations.
+	    pred_diffs_vr = pos_pred_vr.dimshuffle(0, 'x') - neg_pred_vr.dimshuffle('x', 0)
+	    # Get signmoid of each pair.
+	    stats = K.sigmoid(pred_diffs_vr * 2)
+	    # Take average and reverse sign
+	    return 1-K.mean(stats) 
 	
 	def build_model(self, parameters=None):		
 		model = Sequential()
-		model.add(GRU(128, return_sequences=False, 
+		model.add(GRU(32, return_sequences=False, 
 			input_shape=self.input_shape))
 		model.add(Dense(1, activation="sigmoid"))
 
 		model.compile(
-			loss="binary_crossentropy", 
+			loss=roc_loss, 
 			optimizer=Adam(), 
 			metrics=["accuracy"]
 			)

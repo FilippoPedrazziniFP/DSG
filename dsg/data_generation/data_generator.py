@@ -44,7 +44,7 @@ class FakeGeneratorFilo(object):
 
 		# Group By Customer and Bond to have the sum of interests during the period.
 		labels = labels.groupby(["CustomerIdx", "IsinIdx"]).count()["CustomerInterest"].reset_index(level=['CustomerIdx', 'IsinIdx'])		
-		
+
 		# The Train is composed of all the values before the Date
 		features = df[df["TradeDateKey"] <= from_date]		
 		
@@ -306,6 +306,84 @@ class FakeGeneratorFilo(object):
 
 		return features, labels
 
+	def generate_features_labels_regression(self, df, from_date, from_date_feat_label, to_date=None):
+		"""
+			The method creates a dataframe for testing purposes similar to the one 
+			of the competition. It uses the last 2 years/6 months interactions as negative labels
+			x 2 based on sell and buy.
+
+			@args
+				df : DataFrame -> entire Trade Table.
+				from_date : int -> corresponding tot the date in which 
+					we start the week of test.
+				from_date_label : int -> representing the starting date from
+					which we start to collect the negative samples.
+				to_date : int -> date representing the end of the week.
+			@return
+				test_set : DataFrame -> with 1 week of positive and negative 
+					samples from the week considered and the previous 6 months.
+		"""
+
+		# One Hot Encoding for Sell and Buy
+		df = pd.get_dummies(df, columns=['BuySell'])
+		
+		if to_date is None:
+			positive_samples = df[df["TradeDateKey"] >= from_date]
+		else:
+			positive_samples = df[(df["TradeDateKey"] >= from_date) & (df["TradeDateKey"] < to_date)]
+
+		positive_samples = positive_samples.groupby(["CustomerIdx", "IsinIdx", "BuySell_Buy", "BuySell_Sell"])\
+			.count().reset_index(level=['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell"])
+		positive_samples_neg = positive_samples.groupby(["CustomerIdx", "IsinIdx", "BuySell_Buy", "BuySell_Sell"])\
+			.count().reset_index(level=['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell"])
+
+		positive_samples_neg["BuySell_Buy"] = positive_samples["BuySell_Sell"]
+		positive_samples_neg["BuySell_Sell"] = positive_samples["BuySell_Buy"]
+		positive_samples_neg["CustomerInterest"] = positive_samples_neg["CustomerInterest"]\
+            .apply(lambda x: 0 if x > 0 else x)
+
+		positive_samples = positive_samples.drop(["TradeDateKey"], axis=1)
+		positive_samples_neg = positive_samples_neg.drop(["TradeDateKey"], axis=1)
+		
+		# Negative Samples
+		negative_samples = df[(df["TradeDateKey"] >= from_date_feat_label) & (df["TradeDateKey"] < from_date)]
+		negative_samples_neg = df[(df["TradeDateKey"] >= from_date_feat_label) & (df["TradeDateKey"] < from_date)]
+
+		# Double Negative Samples
+		negative_samples_neg = df[(df["TradeDateKey"] >= from_date_feat_label) & (df["TradeDateKey"] < from_date)]
+		negative_samples_neg["BuySell_Buy"] = negative_samples["BuySell_Sell"]
+		negative_samples_neg["BuySell_Sell"] = negative_samples["BuySell_Buy"]
+
+		# Put to zero all the negative
+		negative_samples["CustomerInterest"] = negative_samples["CustomerInterest"]\
+			.apply(lambda x: 0 if x > 0 else x)
+		negative_samples_neg["CustomerInterest"] = negative_samples_neg["CustomerInterest"]\
+			.apply(lambda x: 0 if x > 0 else x)
+
+		negative_samples = negative_samples.drop(["TradeDateKey"], axis=1)
+		negative_samples_neg = negative_samples_neg.drop(["TradeDateKey"], axis=1)
+		negative_samples_neg = negative_samples_neg[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
+		negative_samples = negative_samples[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
+
+		# Concatanate Negative and Positive Samples
+		labels = pd.concat([positive_samples, positive_samples_neg, negative_samples_neg, negative_samples])
+
+		# Unique Values
+		labels = labels.drop_duplicates(subset=['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell"])
+
+		# Reorder the columns
+		labels = labels[['CustomerIdx', 'IsinIdx', "BuySell_Buy", "BuySell_Sell", 'CustomerInterest']]
+		
+		# Clip to a maximum of 5 Interactions or normalize
+		# max_value = labels["CustomerInterest"].max()
+		labels["CustomerInterest"] = labels["CustomerInterest"].apply(lambda x: 5 if x > 5 else x)	
+
+		# The Train is composed of all the values before the Date
+		features = df[df["TradeDateKey"] >= from_date_feat_label]
+		features = features[features["TradeDateKey"] <= from_date]
+
+		return features, labels
+
 	def generate_dictionaries(self, df):
 
 		cust_dict = self.create_customer_features_dict(df)
@@ -340,10 +418,11 @@ class FakeGeneratorFilo(object):
 		# Load the Data
 		loader = DataLoader()
 		df = loader.load_trade_data()
-		# df_bond = loader.load_market_data()
+		self.df_bond = loader.load_market_data()
 
 		# Reorder the data
 		df = df.sort_values("TradeDateKey", ascending=True)
+		self.df_bond = self.df_bond.sort_values("DateKey", ascending=True)
 
 		# Date Dictionary to Transform the Dates
 		self.date_dict = self.create_date_dictionary(df)
@@ -356,6 +435,7 @@ class FakeGeneratorFilo(object):
 
 		# Transform the Dates
 		df["TradeDateKey"] = df["TradeDateKey"].apply(lambda x: self.date_dict[x])
+		self.df_bond["DateKey"] = self.df_bond["DateKey"].apply(lambda x: self.date_dict[x])
 
 		# Converting Dates
 		max_date = self.date_dict[20180422]
@@ -365,7 +445,7 @@ class FakeGeneratorFilo(object):
 		data_weeks = []
 		for i in range(max_date - week_len*weeks, max_date, week_len):
 			print("WEEK: ", i)
-			features, labels = self.generate_features_labels_classification(
+			features, labels = self.generate_features_labels_regression(
 				df=df, 
 				from_date=i, 
 				to_date=i+week_len,
@@ -451,6 +531,10 @@ class FakeGeneratorFilo(object):
 		return X_train, y_train, X_test, y_test, X_val, y_val, X, y, X_challenge
 
 	def create_challenge_set(self, challenge, df):
+		
+		# OHE of the buy sell-column
+		df = pd.get_dummies(df, columns=["BuySell"])
+
 		# Generate Dictionary from Features
 		cust_dict, bond_dict, cus_bond_dict = self.generate_dictionaries(df)
 
@@ -461,19 +545,22 @@ class FakeGeneratorFilo(object):
 				customer_features = cust_dict[sample[0]]
 				customer_features = np.asarray(customer_features)
 			except KeyError:
-				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			try: 
 				bond_features = bond_dict[sample[1]]
 				bond_features = np.asarray(bond_features)
 			except KeyError:
-				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 			try: 
 				cus_bond_features = cus_bond_dict[(sample[0], sample[1])]
 				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
-				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			row = np.append(customer_features, bond_features)
 			row = np.append(row, cus_bond_features)
@@ -503,19 +590,22 @@ class FakeGeneratorFilo(object):
 				customer_features = cust_dict[sample[0]]
 				customer_features = np.asarray(customer_features)
 			except KeyError:
-				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			try: 
 				bond_features = bond_dict[sample[1]]
 				bond_features = np.asarray(bond_features)
 			except KeyError:
-				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 			try: 
 				cus_bond_features = cus_bond_dict[(sample[0], sample[1])]
 				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
-				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			label = sample[-1]
 			row = np.append(customer_features, bond_features)
@@ -572,7 +662,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(num_int, last_int, on=['IsinIdx'], how='left')
 
 		# Last month Interactions
-		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
+		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -20]
 		last_month_df = last_month_df.groupby('IsinIdx').count()
 		last_month_df["LastMonthInt"] = last_month_df["TradeDateKey"]
 		last_month_df = last_month_df.reset_index()
@@ -582,7 +672,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_month_df, on=['IsinIdx'], how='left')
 
 		# Last Week Interactions
-		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -7]
+		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -5]
 		last_week_df = last_week_df.groupby('IsinIdx').count()
 		last_week_df["LastWeekInt"] = last_week_df["TradeDateKey"]
 		last_week_df = last_week_df.reset_index()
@@ -592,7 +682,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_week_df, on=['IsinIdx'], how='left')
 
 		# Last 2 Week Interactions
-		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -15]
+		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -10]
 		last_2_week_df = last_2_week_df.groupby('IsinIdx').count()
 		last_2_week_df["Last2WeekInt"] = last_2_week_df["TradeDateKey"]
 		last_2_week_df = last_2_week_df.reset_index()
@@ -602,20 +692,227 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_2_week_df, on=['IsinIdx'], how='left')
 
 		# Last 2 Month Interactions
-		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -60]
+		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -40]
 		last_2_month_df = last_2_month_df.groupby('IsinIdx').count()
 		last_2_month_df["Last2MonthInt"] = last_2_month_df["TradeDateKey"]
 		last_2_month_df = last_2_month_df.reset_index()
 		last_2_month_df = last_2_month_df[["IsinIdx", "Last2MonthInt"]]
 
-		# Final Merge
+		# Fifth Merge
 		df = pd.merge(df, last_2_month_df, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions in the last week
+		last_week_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -5) & (df_train["BuySell_Sell"] == 1)]
+		last_week_df_sell = last_week_df_sell.groupby(['IsinIdx']).count()
+		last_week_df_sell["LastWeekSell"] = last_week_df_sell["TradeDateKey"]
+		last_week_df_sell = last_week_df_sell.reset_index()
+		last_week_df_sell = last_week_df_sell[["IsinIdx", "LastWeekSell"]]
+
+		# Sixth Merge
+		df = pd.merge(df, last_week_df_sell, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions in the last 2 weeks
+		last_2_week_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -10) & (df_train["BuySell_Sell"] == 1)]
+		last_2_week_df_sell = last_2_week_df_sell.groupby(["IsinIdx"]).count()
+		last_2_week_df_sell["Last2WeekSell"] = last_2_week_df_sell["TradeDateKey"]
+		last_2_week_df_sell = last_2_week_df_sell.reset_index()
+		last_2_week_df_sell = last_2_week_df_sell[["IsinIdx", "Last2WeekSell"]]
+
+		# Seventh Merge
+		df = pd.merge(df, last_2_week_df_sell, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions in the last month
+		last_month_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -20) & (df_train["BuySell_Sell"] == 1)]
+		last_month_df_sell = last_month_df_sell.groupby(['IsinIdx']).count()
+		last_month_df_sell["LastMonthSell"] = last_month_df_sell["TradeDateKey"]
+		last_month_df_sell = last_month_df_sell.reset_index()
+		last_month_df_sell = last_month_df_sell[["IsinIdx", "LastMonthSell"]]
+
+		# Eigth Merge
+		df = pd.merge(df, last_month_df_sell, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions since the beginning
+		df_sell = df_train[df_train["BuySell_Sell"] == 1]
+		df_sell = df_sell.groupby(['IsinIdx']).count()
+		df_sell["SellInt"] = df_sell["TradeDateKey"]
+		df_sell = df_sell.reset_index()
+		df_sell = df_sell[["IsinIdx", "SellInt"]]
+
+		# Ninth Merge
+		df = pd.merge(df, df_sell, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions in the last week
+		last_week_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -5) & (df_train["BuySell_Buy"] == 1)]
+		last_week_df_buy = last_week_df_buy.groupby(['IsinIdx']).count()
+		last_week_df_buy["LastWeekBuy"] = last_week_df_buy["TradeDateKey"]
+		last_week_df_buy = last_week_df_buy.reset_index()
+		last_week_df_buy = last_week_df_buy[["IsinIdx", "LastWeekBuy"]]
+
+		# Tenth Merge
+		df = pd.merge(df, last_week_df_buy, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions in the last 2 weeks
+		last_2_week_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -10) & (df_train["BuySell_Buy"] == 1)]
+		last_2_week_df_buy = last_2_week_df_buy.groupby(['IsinIdx']).count()
+		last_2_week_df_buy["Last2WeekBuy"] = last_2_week_df_buy["TradeDateKey"]
+		last_2_week_df_buy = last_2_week_df_buy.reset_index()
+		last_2_week_df_buy = last_2_week_df_buy[["IsinIdx", "Last2WeekBuy"]]
+
+		# Eleventh Merge
+		df = pd.merge(df, last_2_week_df_buy, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions in the last month
+		last_month_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -20) & (df_train["BuySell_Buy"] == 1)]
+		last_month_df_buy = last_month_df_buy.groupby(['IsinIdx']).count()
+		last_month_df_buy["LastMonthBuy"] = last_month_df_buy["TradeDateKey"]
+		last_month_df_buy = last_month_df_buy.reset_index()
+		last_month_df_buy = last_month_df_buy[["IsinIdx", "LastMonthBuy"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_month_df_buy, on=['IsinIdx'], how='left')
+
+		# Number of sell interactions since the beginning
+		df_buy = df_train[df_train["BuySell_Buy"] == 1]
+		df_buy = df_buy.groupby(['IsinIdx']).count()
+		df_buy["BuyInt"] = df_buy["TradeDateKey"]
+		df_buy = df_buy.reset_index()
+		df_buy = df_buy[["IsinIdx", "BuyInt"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, df_buy, on=['IsinIdx'], how='left')
+
+		""" Market Features """
+
+		# AVG Spread in the last week
+		last_week_spread_df = self.df_bond[self.df_bond["DateKey"] >= max_date -5]
+		last_week_spread_df = last_week_spread_df.groupby(['IsinIdx']).mean()
+		last_week_spread_df = last_week_spread_df.reset_index()
+		last_week_spread_df["LastWeekZSpread"] = last_week_spread_df["ZSpread"]
+		last_week_spread_df = last_week_spread_df[["IsinIdx", "LastWeekZSpread"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_week_spread_df, on=['IsinIdx'], how='left')
+
+		# AVG Spread in the last 2 week
+		last_2_week_spread_df = self.df_bond[self.df_bond["DateKey"] >= max_date -10]
+		last_2_week_spread_df = last_2_week_spread_df.groupby(['IsinIdx']).mean()
+		last_2_week_spread_df = last_2_week_spread_df.reset_index()
+		last_2_week_spread_df["Last2WeekZSpread"] = last_2_week_spread_df["ZSpread"]
+		last_2_week_spread_df = last_2_week_spread_df[["IsinIdx", "Last2WeekZSpread"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_2_week_spread_df, on=['IsinIdx'], how='left')
+
+		# AVG Spread in the last month
+		last_month_spread_df = self.df_bond[self.df_bond["DateKey"] >= max_date -20]
+		last_month_spread_df = last_month_spread_df.groupby(['IsinIdx']).mean()
+		last_month_spread_df = last_month_spread_df.reset_index()
+		last_month_spread_df["LastMonthZSpread"] = last_month_spread_df["ZSpread"]
+		last_month_spread_df = last_month_spread_df[["IsinIdx", "LastMonthZSpread"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_month_spread_df, on=['IsinIdx'], how='left')
+
+		# AVG Spread since the beginning
+		spread_df = self.df_bond[self.df_bond["DateKey"] >= max_date -6*5*4]
+		spread_df = spread_df.groupby(['IsinIdx']).mean()
+		spread_df = spread_df.reset_index()
+		spread_df["AVGZSpread"] = spread_df["ZSpread"]
+		spread_df = spread_df[["IsinIdx", "AVGZSpread"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, spread_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield in the last week
+		last_week_yield_df = self.df_bond[self.df_bond["DateKey"] >= max_date -5]
+		last_week_yield_df = last_week_yield_df.groupby(['IsinIdx']).mean()
+		last_week_yield_df = last_week_yield_df.reset_index()
+		last_week_yield_df["LastWeekYield"] = last_week_yield_df["Yield"]
+		last_week_yield_df = last_week_yield_df[["IsinIdx", "LastWeekYield"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_week_yield_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield in the last 2 week
+		last_2_week_yield_df = self.df_bond[self.df_bond["DateKey"] >= max_date -10]
+		last_2_week_yield_df = last_2_week_yield_df.groupby(['IsinIdx']).mean()
+		last_2_week_yield_df = last_2_week_yield_df.reset_index()
+		last_2_week_yield_df["Last2WeekYield"] = last_2_week_yield_df["Yield"]
+		last_2_week_yield_df = last_2_week_yield_df[["IsinIdx", "Last2WeekYield"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_2_week_yield_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield in the last month
+		last_month_yield_df = self.df_bond[self.df_bond["DateKey"] >= max_date -20]
+		last_month_yield_df = last_month_yield_df.groupby(['IsinIdx']).mean()
+		last_month_yield_df = last_month_yield_df.reset_index()
+		last_month_yield_df["LastMonthYield"] = last_month_yield_df["Yield"]
+		last_month_yield_df = last_month_yield_df[["IsinIdx", "LastMonthYield"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_month_yield_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield since the beginning
+		yield_df = self.df_bond[self.df_bond["DateKey"] >= max_date -6*5*4]
+		yield_df = yield_df.groupby(['IsinIdx']).mean()
+		yield_df = yield_df.reset_index()
+		yield_df["AVGYield"] = yield_df["Yield"]
+		yield_df = yield_df[["IsinIdx", "AVGYield"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, yield_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield in the last week
+		last_week_price_df = self.df_bond[self.df_bond["DateKey"] >= max_date -5]
+		last_week_price_df = last_week_price_df.groupby(['IsinIdx']).mean()
+		last_week_price_df = last_week_price_df.reset_index()
+		last_week_price_df["LastWeekPrice"] = last_week_price_df["Price"]
+		last_week_price_df = last_week_price_df[["IsinIdx", "LastWeekPrice"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_week_price_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield in the last 2 week
+		last_2_week_price_df = self.df_bond[self.df_bond["DateKey"] >= max_date -10]
+		last_2_week_price_df = last_2_week_price_df.groupby(['IsinIdx']).mean()
+		last_2_week_price_df = last_2_week_price_df.reset_index()
+		last_2_week_price_df["Last2WeekPrice"] = last_2_week_price_df["Price"]
+		last_2_week_price_df = last_2_week_price_df[["IsinIdx", "Last2WeekPrice"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_2_week_price_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield in the last month
+		last_month_price_df = self.df_bond[self.df_bond["DateKey"] >= max_date -20]
+		last_month_price_df = last_month_price_df.groupby(['IsinIdx']).mean()
+		last_month_price_df = last_month_price_df.reset_index()
+		last_month_price_df["LastMonthPrice"] = last_month_price_df["Price"]
+		last_month_price_df = last_month_price_df[["IsinIdx", "LastMonthPrice"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_month_price_df, on=['IsinIdx'], how='left')
+
+		# AVG Yield since the beginning
+		price_df = self.df_bond[self.df_bond["DateKey"] >= max_date -6*5*4]
+		price_df = price_df.groupby(['IsinIdx']).mean()
+		price_df = price_df.reset_index()
+		price_df["AVGPrice"] = price_df["Price"]
+		price_df = price_df[["IsinIdx", "AVGPrice"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, price_df, on=['IsinIdx'], how='left')
 
 		# Fill NAN with Zeros
 		df.fillna(0, inplace=True)
 		
-		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], 
-			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"]))
+		df['Features'] = list(zip(
+			df['NumInt'], df['LastInt'], df["LastMonthInt"], df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"], 
+			df["LastWeekSell"], df["Last2WeekSell"], df["LastMonthSell"], df["SellInt"], 
+			df["LastWeekBuy"], df["Last2WeekBuy"], df["LastMonthBuy"], df["BuyInt"], 
+			df["LastWeekZSpread"], df["Last2WeekZSpread"], df["LastMonthZSpread"], df["AVGZSpread"],
+			df["LastWeekYield"], df["Last2WeekYield"], df["LastMonthYield"], df["AVGYield"],
+			df["LastWeekPrice"], df["Last2WeekPrice"], df["LastMonthPrice"], df["AVGPrice"]))
 		df_dict = df.groupby("IsinIdx")["Features"].apply(list).to_dict()
 		
 		return df_dict
@@ -629,6 +926,9 @@ class FakeGeneratorFilo(object):
 			CustomerIdx : Freq, Last Int, Last Month, Last Week, 
 				Last 2 Week, Last 2 Months
 		"""
+		print(df_train.describe())
+		print(df_train.head())
+
 		max_date = df_train["TradeDateKey"].max()
 
 		# Number of Interactions during the period
@@ -647,7 +947,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(num_int, last_int, on=['CustomerIdx'], how='left')
 
 		# Last month Interactions
-		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
+		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -20]
 		last_month_df = last_month_df.groupby('CustomerIdx').count()
 		last_month_df["LastMonthInt"] = last_month_df["TradeDateKey"]
 		last_month_df = last_month_df.reset_index()
@@ -657,7 +957,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_month_df, on=['CustomerIdx'], how='left')
 
 		# Last Week Interactions
-		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -7]
+		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -5]
 		last_week_df = last_week_df.groupby('CustomerIdx').count()
 		last_week_df["LastWeekInt"] = last_week_df["TradeDateKey"]
 		last_week_df = last_week_df.reset_index()
@@ -667,7 +967,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_week_df, on=['CustomerIdx'], how='left')
 
 		# Last 2 Week Interactions
-		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -15]
+		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -10]
 		last_2_week_df = last_2_week_df.groupby('CustomerIdx').count()
 		last_2_week_df["Last2WeekInt"] = last_2_week_df["TradeDateKey"]
 		last_2_week_df = last_2_week_df.reset_index()
@@ -677,20 +977,102 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_2_week_df, on=['CustomerIdx'], how='left')
 
 		# Last 2 Month Interactions
-		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -60]
+		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -40]
 		last_2_month_df = last_2_month_df.groupby('CustomerIdx').count()
 		last_2_month_df["Last2MonthInt"] = last_2_month_df["TradeDateKey"]
 		last_2_month_df = last_2_month_df.reset_index()
 		last_2_month_df = last_2_month_df[["CustomerIdx", "Last2MonthInt"]]
 
-		# Final Merge
+		# Fifth Merge
 		df = pd.merge(df, last_2_month_df, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions in the last week
+		last_week_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -5) & (df_train["BuySell_Sell"] == 1)]
+		last_week_df_sell = last_week_df_sell.groupby('CustomerIdx').count()
+		last_week_df_sell["LastWeekSell"] = last_week_df_sell["TradeDateKey"]
+		last_week_df_sell = last_week_df_sell.reset_index()
+		last_week_df_sell = last_week_df_sell[["CustomerIdx", "LastWeekSell"]]
+
+		# Sixth Merge
+		df = pd.merge(df, last_week_df_sell, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions in the last 2 weeks
+		last_2_week_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -10) & (df_train["BuySell_Sell"] == 1)]
+		last_2_week_df_sell = last_2_week_df_sell.groupby('CustomerIdx').count()
+		last_2_week_df_sell["Last2WeekSell"] = last_2_week_df_sell["TradeDateKey"]
+		last_2_week_df_sell = last_2_week_df_sell.reset_index()
+		last_2_week_df_sell = last_2_week_df_sell[["CustomerIdx", "Last2WeekSell"]]
+
+		# Seventh Merge
+		df = pd.merge(df, last_2_week_df_sell, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions in the last month
+		last_month_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -20) & (df_train["BuySell_Sell"] == 1)]
+		last_month_df_sell = last_month_df_sell.groupby('CustomerIdx').count()
+		last_month_df_sell["LastMonthSell"] = last_month_df_sell["TradeDateKey"]
+		last_month_df_sell = last_month_df_sell.reset_index()
+		last_month_df_sell = last_month_df_sell[["CustomerIdx", "LastMonthSell"]]
+
+		# Eigth Merge
+		df = pd.merge(df, last_month_df_sell, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions since the beginning
+		df_sell = df_train[df_train["BuySell_Sell"] == 1]
+		df_sell = df_sell.groupby('CustomerIdx').count()
+		df_sell["SellInt"] = df_sell["TradeDateKey"]
+		df_sell = df_sell.reset_index()
+		df_sell = df_sell[["CustomerIdx", "SellInt"]]
+
+		# Ninth Merge
+		df = pd.merge(df, df_sell, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions in the last week
+		last_week_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -5) & (df_train["BuySell_Buy"] == 1)]
+		last_week_df_buy = last_week_df_buy.groupby('CustomerIdx').count()
+		last_week_df_buy["LastWeekBuy"] = last_week_df_buy["TradeDateKey"]
+		last_week_df_buy = last_week_df_buy.reset_index()
+		last_week_df_buy = last_week_df_buy[["CustomerIdx", "LastWeekBuy"]]
+
+		# Tenth Merge
+		df = pd.merge(df, last_week_df_buy, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions in the last 2 weeks
+		last_2_week_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -10) & (df_train["BuySell_Buy"] == 1)]
+		last_2_week_df_buy = last_2_week_df_buy.groupby('CustomerIdx').count()
+		last_2_week_df_buy["Last2WeekBuy"] = last_2_week_df_buy["TradeDateKey"]
+		last_2_week_df_buy = last_2_week_df_buy.reset_index()
+		last_2_week_df_buy = last_2_week_df_buy[["CustomerIdx", "Last2WeekBuy"]]
+
+		# Eleventh Merge
+		df = pd.merge(df, last_2_week_df_buy, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions in the last month
+		last_month_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -20) & (df_train["BuySell_Buy"] == 1)]
+		last_month_df_buy = last_month_df_buy.groupby('CustomerIdx').count()
+		last_month_df_buy["LastMonthBuy"] = last_month_df_buy["TradeDateKey"]
+		last_month_df_buy = last_month_df_buy.reset_index()
+		last_month_df_buy = last_month_df_buy[["CustomerIdx", "LastMonthBuy"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_month_df_buy, on=['CustomerIdx'], how='left')
+
+		# Number of sell interactions since the beginning
+		df_buy = df_train[df_train["BuySell_Buy"] == 1]
+		df_buy = df_buy.groupby('CustomerIdx').count()
+		df_buy["BuyInt"] = df_buy["TradeDateKey"]
+		df_buy = df_buy.reset_index()
+		df_buy = df_buy[["CustomerIdx", "BuyInt"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, df_buy, on=['CustomerIdx'], how='left')
 
 		# Fill NAN with Zeros
 		df.fillna(0, inplace=True)
 		
 		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], 
-			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"]))
+			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"], 
+			df["LastWeekSell"], df["Last2WeekSell"], df["LastMonthSell"], df["SellInt"], 
+			df["LastWeekBuy"], df["Last2WeekBuy"], df["LastMonthBuy"], df["BuyInt"]))
 		df_dict = df.groupby("CustomerIdx")["Features"].apply(list).to_dict()
 		
 		return df_dict
@@ -721,7 +1103,7 @@ class FakeGeneratorFilo(object):
 		df.fillna(100, inplace=True)
 
 		# Last month Interactions
-		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -30]
+		last_month_df = df_train[df_train["TradeDateKey"] >= max_date -20]
 		last_month_df = last_month_df.groupby(['CustomerIdx', 'IsinIdx']).count()
 		last_month_df["LastMonthInt"] = last_month_df["TradeDateKey"]
 		last_month_df = last_month_df.reset_index()
@@ -731,7 +1113,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_month_df, on=['CustomerIdx', "IsinIdx"], how='left')
 
 		# Last Week Interactions
-		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -7]
+		last_week_df = df_train[df_train["TradeDateKey"] >= max_date -5]
 		last_week_df = last_week_df.groupby(['CustomerIdx', 'IsinIdx']).count()
 		last_week_df["LastWeekInt"] = last_week_df["TradeDateKey"]
 		last_week_df = last_week_df.reset_index()
@@ -741,7 +1123,7 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_week_df, on=['CustomerIdx', "IsinIdx"], how='left')
 
 		# Last 2 Week Interactions
-		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -15]
+		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -10]
 		last_2_week_df = last_2_week_df.groupby(['CustomerIdx', 'IsinIdx']).count()
 		last_2_week_df["Last2WeekInt"] = last_2_week_df["TradeDateKey"]
 		last_2_week_df = last_2_week_df.reset_index()
@@ -751,20 +1133,118 @@ class FakeGeneratorFilo(object):
 		df = pd.merge(df, last_2_week_df, on=['CustomerIdx', 'IsinIdx'], how='left')
 
 		# Last 2 Month Interactions
-		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -60]
+		last_2_month_df = df_train[df_train["TradeDateKey"] >= max_date -40]
 		last_2_month_df = last_2_month_df.groupby(['CustomerIdx', 'IsinIdx']).count()
 		last_2_month_df["Last2MonthInt"] = last_2_month_df["TradeDateKey"]
 		last_2_month_df = last_2_month_df.reset_index()
 		last_2_month_df = last_2_month_df[["CustomerIdx", 'IsinIdx', "Last2MonthInt"]]
 
-		# Final Merge
+		# Fifth Merge
 		df = pd.merge(df, last_2_month_df, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions in the last week
+		last_week_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -5) & (df_train["BuySell_Sell"] == 1)]
+		last_week_df_sell = last_week_df_sell.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_week_df_sell["LastWeekSell"] = last_week_df_sell["TradeDateKey"]
+		last_week_df_sell = last_week_df_sell.reset_index()
+		last_week_df_sell = last_week_df_sell[["CustomerIdx", "IsinIdx", "LastWeekSell"]]
+
+		# Sixth Merge
+		df = pd.merge(df, last_week_df_sell, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions in the last 2 weeks
+		last_2_week_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -10) & (df_train["BuySell_Sell"] == 1)]
+		last_2_week_df_sell = last_2_week_df_sell.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_2_week_df_sell["Last2WeekSell"] = last_2_week_df_sell["TradeDateKey"]
+		last_2_week_df_sell = last_2_week_df_sell.reset_index()
+		last_2_week_df_sell = last_2_week_df_sell[["CustomerIdx", "IsinIdx", "Last2WeekSell"]]
+
+		# Seventh Merge
+		df = pd.merge(df, last_2_week_df_sell, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions in the last month
+		last_month_df_sell = df_train[(df_train["TradeDateKey"] >= max_date -20) & (df_train["BuySell_Sell"] == 1)]
+		last_month_df_sell = last_month_df_sell.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_month_df_sell["LastMonthSell"] = last_month_df_sell["TradeDateKey"]
+		last_month_df_sell = last_month_df_sell.reset_index()
+		last_month_df_sell = last_month_df_sell[["CustomerIdx", "IsinIdx", "LastMonthSell"]]
+
+		# Eigth Merge
+		df = pd.merge(df, last_month_df_sell, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions since the beginning
+		df_sell = df_train[df_train["BuySell_Sell"] == 1]
+		df_sell = df_sell.groupby(['CustomerIdx', 'IsinIdx']).count()
+		df_sell["SellInt"] = df_sell["TradeDateKey"]
+		df_sell = df_sell.reset_index()
+		df_sell = df_sell[["CustomerIdx", "IsinIdx", "SellInt"]]
+
+		# Ninth Merge
+		df = pd.merge(df, df_sell, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions in the last week
+		last_week_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -5) & (df_train["BuySell_Buy"] == 1)]
+		last_week_df_buy = last_week_df_buy.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_week_df_buy["LastWeekBuy"] = last_week_df_buy["TradeDateKey"]
+		last_week_df_buy = last_week_df_buy.reset_index()
+		last_week_df_buy = last_week_df_buy[["CustomerIdx", "IsinIdx", "LastWeekBuy"]]
+
+		# Tenth Merge
+		df = pd.merge(df, last_week_df_buy, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions in the last 2 weeks
+		last_2_week_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -10) & (df_train["BuySell_Buy"] == 1)]
+		last_2_week_df_buy = last_2_week_df_buy.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_2_week_df_buy["Last2WeekBuy"] = last_2_week_df_buy["TradeDateKey"]
+		last_2_week_df_buy = last_2_week_df_buy.reset_index()
+		last_2_week_df_buy = last_2_week_df_buy[["CustomerIdx", "IsinIdx", "Last2WeekBuy"]]
+
+		# Eleventh Merge
+		df = pd.merge(df, last_2_week_df_buy, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions in the last month
+		last_month_df_buy = df_train[(df_train["TradeDateKey"] >= max_date -20) & (df_train["BuySell_Buy"] == 1)]
+		last_month_df_buy = last_month_df_buy.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_month_df_buy["LastMonthBuy"] = last_month_df_buy["TradeDateKey"]
+		last_month_df_buy = last_month_df_buy.reset_index()
+		last_month_df_buy = last_month_df_buy[["CustomerIdx", "IsinIdx", "LastMonthBuy"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, last_month_df_buy, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		# Number of sell interactions since the beginning
+		df_buy = df_train[df_train["BuySell_Buy"] == 1]
+		df_buy = df_buy.groupby(['CustomerIdx', 'IsinIdx']).count()
+		df_buy["BuyInt"] = df_buy["TradeDateKey"]
+		df_buy = df_buy.reset_index()
+		df_buy = df_buy[["CustomerIdx", "IsinIdx", "BuyInt"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, df_buy, on=['CustomerIdx', 'IsinIdx'], how='left')
+
+		print("NEW LAST INT TYPE IMPLE.")
+		print(df.head())
+		print(df.describe())
+		# exit()
+
+		# Type of the last interaction
+		df_int_type = df_train.sort_values("TradeDateKey", ascending=True)
+		df_int_type = df_int_type.drop_duplicates(["CustomerIdx", "IsinIdx"], keep="last")
+		df_int_type["TypeLastInt"] = df_int_type["BuySell_Buy"]
+		df_int_type = df_int_type[["CustomerIdx", "IsinIdx", "TypeLastInt"]]
+
+		# Twelveth Merge
+		df = pd.merge(df, df_int_type, on=['CustomerIdx', 'IsinIdx'], how='left')
+		print(df.groupby(["CustomerIdx", "IsinIdx"]).count().describe())
 
 		# Fill NAN with Zeros
 		df.fillna(0, inplace=True)
 		
 		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], 
-			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"]))
+			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"], 
+			df["LastWeekSell"], df["Last2WeekSell"], df["LastMonthSell"], 
+			df["SellInt"], df["LastWeekBuy"], df["Last2WeekBuy"], 
+			df["LastMonthBuy"], df["BuyInt"], df["TypeLastInt"]))
 		df_dict = df.groupby(['CustomerIdx', "IsinIdx"])["Features"].apply(list).to_dict()
 		
 		return df_dict

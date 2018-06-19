@@ -49,7 +49,7 @@ def main():
 		print("TRAINED FINISHED, STARTING TEST..")
 
 		# Evaluate the model
-		score = model.evaluate(X_test, y_test)
+		score = model.evaluate(X_test[0:200], y_test[0:200])
 		print("TEST SCORE: ", score)
 		
 		print("TIME TO FIT AND EVALUATE THE MODEL: ", time.clock() - t)
