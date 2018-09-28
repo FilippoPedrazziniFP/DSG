@@ -69,5 +69,15 @@ def transform_train_tracking(df):
 
     df = encode_train(df)
     df = columns_df_to_list(df)
+    df.to_pickle("./df_transformed.pkl")
 
     return df
+
+def get_dataset(transformed_df, label_df):
+
+    merged_df = label_df.merge(transformed_df, on=['sid'], how='left')
+    merged_df['label'] = merged_df["target"].apply(lambda x: 0 if x is False else 1)
+    x = merged_df['list'].tolist()
+    y = merged_df['label'].tolist()
+
+    return x,y
