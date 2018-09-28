@@ -6,13 +6,13 @@ class Preprocessor():
 	def __init__(self):
 		super(Preprocessor, self).__init__()
 	
-	def fit_transform(self, data):
+	def fit_transform(self):
 		raise NotImplementedError
 
 	def fit(self, data):
 		raise NotImplementedError
 	
-	def transform(self, data):
+	def transform(self):
 		raise NotImplementedError
 	
 class FlatPreprocessor(Preprocessor):
@@ -23,14 +23,13 @@ class FlatPreprocessor(Preprocessor):
 		self.train_samples = train_samples
 		self.test_samples = test_samples
 		self.val_samples = val_samples
+	
+	def load_data(self, train=True):
+		raise NotImplementedError
 
-	def fit_transform(self, data):
-		# label split
-		X = data[0]
-		y = data[1]
-
-		print(len(X))
-		print(len(y))
+	def fit_transform(self):
+		# Loading data
+		X, y = self.load_data(train=True)
 
 		# normalize data
 		X = self.standardize_features(X)

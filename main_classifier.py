@@ -6,9 +6,6 @@ from dsg.loader import DataLoader, Util
 from dsg.models.classifier import CatBoost
 from dsg.preprocessor import FlatPreprocessor
 
-def generate_submission_file(model):
-    return
-
 def main():
 	
     # Fixing the seed
@@ -17,19 +14,17 @@ def main():
 
     start = time.clock()
 
-    # to redoit
-    data = DataLoader.load_created_data()
     preprocessor = FlatPreprocessor()
     
-    try:
-        print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+    """try:
         X_train, y_train, X_test, y_test, X_val, y_val, X, y = \
-        DataLoader.load_created_pickle(Util.AFTER_PREPROCESSING)
-    except:
-        print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
-        X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(data)
-        DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
-        [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
+        DataLoader.load_from_pickle(Util.AFTER_PREPROCESSING)
+        print("FILE FOUND")
+    except:"""
+    print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+    X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform()
+    DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
+    [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
 
     preproc_time = time.clock() - start
     input("TIME TO LOAD AND PREPROCESS THE DATA: "+ str(preproc_time))
@@ -50,7 +45,7 @@ def main():
     model.fit(X, y)
 
     # generate submission file
-    generate_submission_file(model, preprocessor)
+    Util.generate_submission_file(model, preprocessor)
 
     return
 
