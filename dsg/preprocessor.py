@@ -106,3 +106,11 @@ def transform_train(df):
     df_grouped.to_pickle("./df_encoded.pkl")
     return df_grouped
 
+
+def columns_df_to_list(df):
+    df["list"] = df.apply(lambda x: list(x[1:]), axis=1)
+    listed_final = df["list"]
+    listed_final = listed_final.reset_index().groupby('sid')['list'].apply(list).reset_index()
+    return listed_final
+
+
