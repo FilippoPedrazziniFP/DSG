@@ -37,8 +37,8 @@ def get_type_feature(type_str):
 
 
 def process_string(s):
-    s.replace("SEARCH", "LR")
-    s.replace("LIST_PRODUCT", "LP")
+    s = s.replace("SEARCH", "LR")
+    s = s.replace("LIST_PRODUCT", "LP")
     return s
 
 
