@@ -34,3 +34,23 @@ def get_type_feature(type_str):
 
     # return 2 hot encoded vectors
     return page_vec, event_vec
+
+
+def process_string(s):
+    s.replace("SEARCH", "LR")
+    s.replace("LIST_PRODUCT", "LP")
+    return s
+
+
+def transform_train(df):
+    """
+    Dataframe grouped by id. Type feature is encoded in two vectors page_vec, event_vec
+    Resulting dataframe saved in df_encoded.pkl
+    """
+    df_grouped = df.groupby('sid').apply(lambda x: x.sort_values(["duration"]))
+    df_grouped['page_vec'] = df_grouped["type"].apply(lambda x: get_type_feature(process_string(x))[0])
+    df_grouped['event_vec'] = df_grouped["type"].apply(lambda x: get_type_feature(process_string(x))[1])
+
+    df_grouped.to_pickle("./df_encoded.pkl")
+    return df_grouped
+
