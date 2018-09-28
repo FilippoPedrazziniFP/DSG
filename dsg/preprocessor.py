@@ -25,17 +25,22 @@ class FlatPreprocessor(Preprocessor):
 		self.val_samples = val_samples
             
     
-    def pre_fit_transform(self, train= True):
+    def pre_fit_transform(self, isTrain= True):
         sess = pd.read_csv("data/train_session.csv")
-        if train:    
+        if isTrain:    
             X = pd.read_csv("data/train_tracking.csv")
         else:
             X =  pd.read_csv("data/test_tracking.csv")
         
         tra_feat = gen_tra_features(X)
         dev_feat = gen_dev_features(X)
-        train = tra_feat.merge(dev_feat, on=[“sid”], how='left')
-        return train
+        train = sess.merge(tra_feat, on=['sid'], how='left').merge(dev_feat, on=['sid'], how='left')
+        train.drop(["target"], inplace=True, axis=1)
+        y = sess["target"]
+        if isTrain:
+            return train, y
+        else:
+            return train, None
 
 	def fit_transform(self, data):
 		# label split
@@ -146,7 +151,7 @@ def gen_tra_features(df):
     
     tra_one_list = df.groupby('sid').agg({'type':lambda x: list(x)}).reset_index()
     tra_one_list['one_hot'] = tra_one_list["type"].apply(lambda x: [get_type_feature(s) for s in x])
-    tra_one_list["feature"] = tra_one_list["one_hot"].apply(self.matr_to_list)
+    tra_one_list["feature"] = tra_one_list["one_hot"].apply(matr_to_list)
     
     tra_features = pd.DataFrame(tra_one_list["feature"].values.tolist(), columns=page_type+event_type)
     tra_features["sid"] = tra_one_list["sid"]
