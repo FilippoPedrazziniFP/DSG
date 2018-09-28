@@ -29,7 +29,6 @@ class SeqPreprocessor():
             try:
                 print("Loading pickle data...")
                 df_transformed = DataLoader.load_from_pickle("./df_transformed_train.pkl")
-                df_train = pd.read_csv(Util.TRAIN_SESSION)
                 print("loading completed")
             except:
                 print("loading failed, constructing data...")
@@ -37,6 +36,7 @@ class SeqPreprocessor():
                 df_transformed = transform_train_tracking(df_train_tracking)
                 df_transformed.to_pickle("./df_transformed_train.pkl")
                 print("data constructed")
+            df_train = pd.read_csv(Util.TRAIN_SESSION)
             x, y = get_dataset(df_transformed, df_train)
             return x, y
 
