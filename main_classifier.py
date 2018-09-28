@@ -16,15 +16,15 @@ def main():
 
     preprocessor = FlatPreprocessor()
     
-    try:
+    """try:
         X_train, y_train, X_test, y_test, X_val, y_val, X, y = \
         DataLoader.load_from_pickle(Util.AFTER_PREPROCESSING)
         print("FILE FOUND")
-    except FileNotFoundError:
-        print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
-        X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform()
-        DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
-        [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
+    except FileNotFoundError:"""
+    print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+    X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform()
+    DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
+    [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
 
     preproc_time = time.clock() - start
     input("TIME TO LOAD AND PREPROCESS THE DATA: "+ str(preproc_time))
@@ -43,6 +43,7 @@ def main():
 
     # fit on entire data
     model.fit(X, y)
+    print("FITTED ON ENTIRE DATA..")
 
     # generate submission file
     Util.generate_submission_file(model, preprocessor)

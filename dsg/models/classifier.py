@@ -12,9 +12,12 @@ class CatBoost(Model):
 
     def transform(self, X_test):
         predictions = self.model.predict_proba(X_test)
-        print(predictions)
         return predictions
     
+    def predict(self, X_test):
+        predictions = self.model.predict_proba(X_test)[:,1]
+        return predictions
+
     def evaluate(self, X_test, y_test):
         y_pred = self.transform(X_test)
         score = log_loss(y_test, y_pred)

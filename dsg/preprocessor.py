@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
-
 from dsg.loader import DataLoader, Util
 
 class Preprocessor():
@@ -30,10 +29,11 @@ class FlatPreprocessor(Preprocessor):
 		self.val_samples = val_samples
 
 	def load_data(self, is_train=True):
-		sess = pd.read_csv("./data/train_session.csv")
-		if is_train:	
+		if is_train:
+			sess = pd.read_csv("./data/train_session.csv")
 			X = pd.read_csv("./data/train_tracking.csv")
 		else:
+			sess = pd.read_csv(Util.RANDOM_SUBMISSION)
 			X =  pd.read_csv("./data/test_tracking.csv")
 		
 		tra_feat = gen_tra_features(X)
@@ -47,18 +47,34 @@ class FlatPreprocessor(Preprocessor):
 			return train.values.tolist(), y.values.tolist()
 		else:
 			return train.values.tolist(), None
+		
+	def transform(self):
+		start = time.clock()
+		"""try: 
+			X, y = DataLoader.load_from_pickle(Util.BEFORE_PREPROCESSING_TEST)
+			print("FILE FOUND")
+		except FileNotFoundError:"""
+		print("FILE NOT FOUND")
+		X, _ = self.load_data(is_train=False)
+		DataLoader.save_into_pickle(Util.BEFORE_PREPROCESSING_TEST, [X, y])
+		preproc_time = time.clock() - start
+		input("TIME TO LOAD THE DATA: "+ str(preproc_time))
+		
+		# normalize data
+		X = self.standardize_features(X)
+		return X
 
 	def fit_transform(self):
 		start = time.clock()
-		try: 
+		"""try: 
 			X, y = DataLoader.load_from_pickle(Util.BEFORE_PREPROCESSING)
 			print("FILE FOUND")
-		except FileNotFoundError:
-			print("FILE NOT FOUND")
-			X, y = self.load_data(is_train=True)
-			DataLoader.save_into_pickle(Util.BEFORE_PREPROCESSING, [X, y])
-			preproc_time = time.clock() - start
-			input("TIME TO LOAD THE DATA: "+ str(preproc_time))
+		except FileNotFoundError:"""
+		print("FILE NOT FOUND")
+		X, y = self.load_data(is_train=True)
+		DataLoader.save_into_pickle(Util.BEFORE_PREPROCESSING, [X, y])
+		preproc_time = time.clock() - start
+		input("TIME TO LOAD THE DATA: "+ str(preproc_time))
 		
 		# normalize data
 		X = self.standardize_features(X)
