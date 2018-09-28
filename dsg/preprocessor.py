@@ -22,12 +22,26 @@ class Preprocessor():
 
 class FlatPreprocessor(Preprocessor):
 
+
     def __init__(self, train_samples=2000,
                  test_samples=300, val_samples=0):
         super(Preprocessor, self).__init__()
         self.train_samples = train_samples
         self.test_samples = test_samples
         self.val_samples = val_samples
+
+
+    def pre_fit_transform(self, train=True):
+        sess = pd.read_csv("data/train_session.csv")
+        if train:
+            X = pd.read_csv("data/train_tracking.csv")
+        else:
+            X = pd.read_csv("data/test_tracking.csv")
+
+        tra_feat = gen_tra_features(X)
+        dev_feat = gen_dev_features(X)
+        train = tra_feat.merge(dev_feat, on=[“sid”], how = 'left')
+        return train
 
     def fit_transform(self, data):
         # label split
@@ -139,6 +153,38 @@ def columns_df_to_list(df):
     listed_final = df["list"]
     listed_final = listed_final.reset_index().groupby('sid')['list'].apply(list).reset_index()
     return listed_final
+
+def matr_to_list(l, op = np.add):
+    
+    res_page = np.zeros(5)
+    res_event = np.zeros(3)
+    
+    for oh_page, oh_event in l:
+        res_page = op(oh_page, res_page)
+        res_event = op(oh_event, res_event)
+        
+    return np.append(res_page, res_event)
+
+def gen_tra_features(df):
+    page_type = ['PA', 'LP', 'LR', 'CAROUSEL', 'SHOW_CASE']
+    event_type = ['ADD_TO_BASKET', 'PURCHASE_PRODUCT', 'PRODUCT']
+    
+    tra_one_list = df.groupby('sid').agg({'type':lambda x: list(x)}).reset_index()
+    tra_one_list['one_hot'] = tra_one_list["type"].apply(lambda x: [get_type_feature(s) for s in x])
+    tra_one_list["feature"] = tra_one_list["one_hot"].apply(self.matr_to_list)
+    
+    tra_features = pd.DataFrame(tra_one_list["feature"].values.tolist(), columns=page_type+event_type)
+    tra_features["sid"] = tra_one_list["sid"]
+    return tra_features
+
+
+def gen_dev_features(df):
+    dummies = pd.get_dummies(df["device"])
+    temp = pd.DataFrame()
+    temp["sid"] = df["sid"]
+    temp[["dev1", "dev2", "dev3"]] = dummies
+    dev_features = temp.groupby("sid").max().reset_index()
+    return dev_features
 
 
 def transform_train_tracking(df):
