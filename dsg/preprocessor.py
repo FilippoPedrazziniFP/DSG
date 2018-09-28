@@ -1,15 +1,67 @@
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
+
 class Preprocessor():
     
-    def __init__(self, seq_length=10):
+    def __init__(self):
 		super(Preprocessor, self).__init__()
-		self.seq_length = seq_length
     
-    def fit(self):
-        raise NotImplementedError
-    
-    def transform(self):
+    def fit_transform(self, data):
         raise NotImplementedError
 
+    def fit(self, data):
+        raise NotImplementedError
+    
+    def transform(self, data):
+        raise NotImplementedError
+    
+class FlatPreprocessor(Preprocessor):
+
+    def __init__(self, train_samples=2000, 
+		test_samples=300, val_samples=0):
+		super(Preprocessor, self).__init__()
+        self.train_samples = train_samples
+		self.test_samples = test_samples
+		self.val_samples = val_samples
+
+    def fit_transform(self, data):
+        # label split
+        X = data[0]
+        y = data[1]
+
+        print(len(X))
+        print(len(y))
+
+        # normalize data
+        X = self.standardize_features(X)
+
+        # shuffle data
+        X, y = shuffle(X, y)
+
+        # train, test, validation
+        X_train, y_train, X_test, y_test, X_val, y_val = \
+        self.train_test_validation_split(X, y)
+
+        return X_train, y_train, X_test, y_test, X_val, y_val
+    
+    def train_test_validation_split(self, features, labels):
+
+		X_test = features[-self.test_samples:]
+		y_test = labels[-self.test_samples:]
+
+		X_val = features[-(self.test_samples+self.val_samples):-self.test_samples]
+		y_val = labels[-(self.test_samples+self.val_samples):-self.test_samples]
+
+		X_train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
+		y_train = labels[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
+
+		return X_train, y_train, X_test, y_test, X_val, y_val
+    
+    def standardize_features(self, X_train):
+        scaler = StandardScaler()
+        scaler.fit(X_train)
+        X_train = scaler.transform(X_train)
+        return X_train
 
 def get_type_feature(type_str):
     """

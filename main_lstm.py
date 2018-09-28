@@ -5,6 +5,7 @@ import time
 from dsg.models.model import RecurrentModel
 
 def main():
+	
 	# Fixing the seed
 	np.random.seed(0)
 	tf.set_random_seed(0)
