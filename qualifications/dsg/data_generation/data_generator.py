@@ -546,21 +546,22 @@ class FakeGeneratorFilo(object):
 				customer_features = np.asarray(customer_features)
 			except KeyError:
 				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			try: 
 				bond_features = bond_dict[sample[1]]
 				bond_features = np.asarray(bond_features)
 			except KeyError:
 				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 			try: 
 				cus_bond_features = cus_bond_dict[(sample[0], sample[1])]
 				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
 				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			row = np.append(customer_features, bond_features)
 			row = np.append(row, cus_bond_features)
@@ -591,21 +592,22 @@ class FakeGeneratorFilo(object):
 				customer_features = np.asarray(customer_features)
 			except KeyError:
 				customer_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			try: 
 				bond_features = bond_dict[sample[1]]
 				bond_features = np.asarray(bond_features)
 			except KeyError:
 				bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 			try: 
 				cus_bond_features = cus_bond_dict[(sample[0], sample[1])]
 				cus_bond_features = np.asarray(cus_bond_features)
 			except KeyError:
 				cus_bond_features = np.array([0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+					0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			
 			label = sample[-1]
 			row = np.append(customer_features, bond_features)
@@ -680,6 +682,36 @@ class FakeGeneratorFilo(object):
 
 		# Third Merge
 		df = pd.merge(df, last_week_df, on=['IsinIdx'], how='left')
+
+		# Last Week Interactions
+		last_day_df = df_train[df_train["TradeDateKey"] >= max_date -1]
+		last_day_df = last_day_df.groupby('IsinIdx').count()
+		last_day_df["LastDayInt"] = last_day_df["TradeDateKey"]
+		last_day_df = last_day_df.reset_index()
+		last_day_df = last_day_df[["IsinIdx", "LastDayInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_day_df, on=['IsinIdx'], how='left')
+
+		# Last Week Interactions
+		last_3_day_df = df_train[df_train["TradeDateKey"] >= max_date -3]
+		last_3_day_df = last_3_day_df.groupby('IsinIdx').count()
+		last_3_day_df["Last3DaysInt"] = last_3_day_df["TradeDateKey"]
+		last_3_day_df = last_3_day_df.reset_index()
+		last_3_day_df = last_3_day_df[["IsinIdx", "Last3DaysInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_3_day_df, on=['IsinIdx'], how='left')
+
+		# Last Week Interactions
+		last_8_day_df = df_train[df_train["TradeDateKey"] >= max_date -8]
+		last_8_day_df = last_8_day_df.groupby('IsinIdx').count()
+		last_8_day_df["Last8DaysInt"] = last_8_day_df["TradeDateKey"]
+		last_8_day_df = last_8_day_df.reset_index()
+		last_8_day_df = last_8_day_df[["IsinIdx", "Last8DaysInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_8_day_df, on=['IsinIdx'], how='left')
 
 		# Last 2 Week Interactions
 		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -10]
@@ -907,7 +939,9 @@ class FakeGeneratorFilo(object):
 		df.fillna(0, inplace=True)
 		
 		df['Features'] = list(zip(
-			df['NumInt'], df['LastInt'], df["LastMonthInt"], df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"], 
+			df['NumInt'], df['LastInt'], df["LastMonthInt"], df["LastWeekInt"], 
+			df["LastDayInt"], df["Last3DaysInt"], df["Last8DaysInt"],
+			df["Last2WeekInt"], df["Last2MonthInt"], 
 			df["LastWeekSell"], df["Last2WeekSell"], df["LastMonthSell"], df["SellInt"], 
 			df["LastWeekBuy"], df["Last2WeekBuy"], df["LastMonthBuy"], df["BuyInt"], 
 			df["LastWeekZSpread"], df["Last2WeekZSpread"], df["LastMonthZSpread"], df["AVGZSpread"],
@@ -965,6 +999,36 @@ class FakeGeneratorFilo(object):
 
 		# Third Merge
 		df = pd.merge(df, last_week_df, on=['CustomerIdx'], how='left')
+
+		# Last Week Interactions
+		last_day_df = df_train[df_train["TradeDateKey"] >= max_date -1]
+		last_day_df = last_day_df.groupby('CustomerIdx').count()
+		last_day_df["LastDayInt"] = last_day_df["TradeDateKey"]
+		last_day_df = last_day_df.reset_index()
+		last_day_df = last_day_df[["CustomerIdx", "LastDayInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_day_df, on=['CustomerIdx'], how='left')
+
+		# Last Week Interactions
+		last_3_days_df = df_train[df_train["TradeDateKey"] >= max_date -3]
+		last_3_days_df = last_3_days_df.groupby('CustomerIdx').count()
+		last_3_days_df["Last3DaysInt"] = last_3_days_df["TradeDateKey"]
+		last_3_days_df = last_3_days_df.reset_index()
+		last_3_days_df = last_3_days_df[["CustomerIdx", "Last3DaysInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_3_days_df, on=['CustomerIdx'], how='left')
+
+		# Last Week Interactions
+		last_8days_df = df_train[df_train["TradeDateKey"] >= max_date -8]
+		last_8days_df = last_8days_df.groupby('CustomerIdx').count()
+		last_8days_df["Last8DaysInt"] = last_8days_df["TradeDateKey"]
+		last_8days_df = last_8days_df.reset_index()
+		last_8days_df = last_8days_df[["CustomerIdx", "Last8DaysInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_8days_df, on=['CustomerIdx'], how='left')
 
 		# Last 2 Week Interactions
 		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -10]
@@ -1070,7 +1134,8 @@ class FakeGeneratorFilo(object):
 		df.fillna(0, inplace=True)
 		
 		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], 
-			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"], 
+			df["LastWeekInt"], df["LastDayInt"], df["Last3DaysInt"], df["Last8DaysInt"], 
+			df["Last2WeekInt"], df["Last2MonthInt"], 
 			df["LastWeekSell"], df["Last2WeekSell"], df["LastMonthSell"], df["SellInt"], 
 			df["LastWeekBuy"], df["Last2WeekBuy"], df["LastMonthBuy"], df["BuyInt"]))
 		df_dict = df.groupby("CustomerIdx")["Features"].apply(list).to_dict()
@@ -1121,6 +1186,36 @@ class FakeGeneratorFilo(object):
 
 		# Third Merge
 		df = pd.merge(df, last_week_df, on=['CustomerIdx', "IsinIdx"], how='left')
+
+		# Last Week Interactions
+		last_day_df = df_train[df_train["TradeDateKey"] >= max_date -5]
+		last_day_df = last_day_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_day_df["LastDayInt"] = last_day_df["TradeDateKey"]
+		last_day_df = last_day_df.reset_index()
+		last_day_df = last_day_df[["CustomerIdx", 'IsinIdx', "LastDayInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_day_df, on=['CustomerIdx', "IsinIdx"], how='left')
+
+		# Last Week Interactions
+		last_3days_df = df_train[df_train["TradeDateKey"] >= max_date -5]
+		last_3days_df = last_3days_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_3days_df["Last3DaysInt"] = last_3days_df["TradeDateKey"]
+		last_3days_df = last_3days_df.reset_index()
+		last_3days_df = last_3days_df[["CustomerIdx", 'IsinIdx', "Last3DaysInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_3days_df, on=['CustomerIdx', "IsinIdx"], how='left')
+
+		# Last Week Interactions
+		last_8days_df = df_train[df_train["TradeDateKey"] >= max_date -5]
+		last_8days_df = last_8days_df.groupby(['CustomerIdx', 'IsinIdx']).count()
+		last_8days_df["Last8DaysInt"] = last_8days_df["TradeDateKey"]
+		last_8days_df = last_8days_df.reset_index()
+		last_8days_df = last_8days_df[["CustomerIdx", 'IsinIdx', "Last8DaysInt"]]
+
+		# Third Merge
+		df = pd.merge(df, last_8days_df, on=['CustomerIdx', "IsinIdx"], how='left')
 
 		# Last 2 Week Interactions
 		last_2_week_df = df_train[df_train["TradeDateKey"] >= max_date -10]
@@ -1241,7 +1336,8 @@ class FakeGeneratorFilo(object):
 		df.fillna(0, inplace=True)
 		
 		df['Features'] = list(zip(df['NumInt'], df['LastInt'], df["LastMonthInt"], 
-			df["LastWeekInt"], df["Last2WeekInt"], df["Last2MonthInt"], 
+			df["LastWeekInt"], df["LastDayInt"], df["Last3DaysInt"], df["Last8DaysInt"], 
+			df["Last2WeekInt"], df["Last2MonthInt"], 
 			df["LastWeekSell"], df["Last2WeekSell"], df["LastMonthSell"], 
 			df["SellInt"], df["LastWeekBuy"], df["Last2WeekBuy"], 
 			df["LastMonthBuy"], df["BuyInt"], df["TypeLastInt"]))
