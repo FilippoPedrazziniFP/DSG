@@ -12,15 +12,18 @@ class Util():
     LABELS = "./data/Ytrain.p"
 
     AFTER_PREPROCESSING = "./data/after_preprocessing.pkl"
+    BEFORE_PREPROCESSING = "./data/before_preprocessing.pkl"
 
-class DataLoader(object):
     @staticmethod
-    def load_train_data():
-        df_train_target = pd.read_csv(Util.TRAIN_SESSION)
-        df_train_features = pd.read_csv(Util.TRAIN_TRACKING)
-        df_train = df_train_target.merge(df_train_features, on="sid")
-        df_train = df_train.sort_values(by=['duration'])
-        return df_train
+    def generate_submission_file(model, preprocessor):
+        X_test = preprocessor.transform()
+        y_pred = model.transform(X_test)
+
+        # generate the submission file
+        # substitute the column
+        return
+
+class DataLoader(object):    
     
     @staticmethod
     def load_created_data():

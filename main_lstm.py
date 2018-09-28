@@ -3,6 +3,7 @@ import tensorflow as tf
 import time
 
 from dsg.models.model import RecurrentModel
+from dsg.preprocessor import SequentialPreprocessor
 
 def main():
 	
@@ -11,23 +12,13 @@ def main():
 	tf.set_random_seed(0)
 	
 	start = time.clock()
-	
-	X_train = [
-		[
-			[0, 1, 0, 1, 0]
-		], 
-		[
-			[0, 1, 0, 1, 0],
-			[0, 1, 0, 1, 0],
-			[0, 1, 0, 1, 0],
-			[0, 1, 0, 1, 0]
-		],
-		[
-			[0, 1, 0, 1, 0],
-			[0, 1, 0, 1, 0],
-			[0, 1, 0, 1, 0]
-		]
-	]
+
+	preprocessor = SequentialPreprocessor()
+
+	print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+    X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(train=True)
+    DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
+    [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
 
 	y_train = [0, 1, 0]
 	preproc_time = time.clock() - start
@@ -38,7 +29,7 @@ def main():
 
 	# fit and evaluate the model
 	model = RecurrentModel()
-	model.fit(X_train, y_train)
+	model.fit(X_train, y_train, X_val, y_val)
 
 	fit_model = time.clock() - preproc_time
 	input("TIME TO FIT THE MODEL: "+ str(fit_model))

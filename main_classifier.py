@@ -6,9 +6,6 @@ from dsg.loader import DataLoader, Util
 from dsg.models.classifier import CatBoost
 from dsg.preprocessor import FlatPreprocessor
 
-def generate_submission_file(model):
-    return
-
 def main():
 	
     # Fixing the seed
@@ -17,17 +14,15 @@ def main():
 
     start = time.clock()
 
-    # to redoit
-    data = DataLoader.load_created_data()
     preprocessor = FlatPreprocessor()
     
     try:
-        print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
         X_train, y_train, X_test, y_test, X_val, y_val, X, y = \
-        DataLoader.load_created_pickle(Util.AFTER_PREPROCESSING)
-    except:
+        DataLoader.load_from_pickle(Util.AFTER_PREPROCESSING)
+        print("FILE FOUND")
+    except FileNotFoundError:
         print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
-        X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(data)
+        X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform()
         DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
         [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
 
@@ -50,7 +45,7 @@ def main():
     model.fit(X, y)
 
     # generate submission file
-    generate_submission_file(model, preprocessor)
+    Util.generate_submission_file(model, preprocessor)
 
     return
 
