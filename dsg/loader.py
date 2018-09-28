@@ -12,6 +12,7 @@ class Util():
     LABELS = "./data/Ytrain.p"
 
     AFTER_PREPROCESSING = "./data/after_preprocessing.pkl"
+    BEFORE_PREPROCESSING = "./data/before_preprocessing.pkl"
 
     @staticmethod
     def generate_submission_file(model, preprocessor):

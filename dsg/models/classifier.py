@@ -11,7 +11,8 @@ class CatBoost(Model):
         return
 
     def transform(self, X_test):
-        predictions = self.model.predict_proba(X_test)[0]
+        predictions = self.model.predict_proba(X_test)
+        print(predictions)
         return predictions
     
     def evaluate(self, X_test, y_test):

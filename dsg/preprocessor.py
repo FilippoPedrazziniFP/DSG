@@ -1,5 +1,10 @@
+import time
+import numpy as np
+import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
+
+from dsg.loader import DataLoader, Util
 
 class Preprocessor():
 	
@@ -23,14 +28,38 @@ class FlatPreprocessor(Preprocessor):
 		self.train_samples = train_samples
 		self.test_samples = test_samples
 		self.val_samples = val_samples
-	
-	def load_data(self, train=True):
-		raise NotImplementedError
+
+	def load_data(self, is_train=True):
+		sess = pd.read_csv("./data/train_session.csv")
+		if is_train:	
+			X = pd.read_csv("./data/train_tracking.csv")
+		else:
+			X =  pd.read_csv("./data/test_tracking.csv")
+		
+		tra_feat = gen_tra_features(X)
+		dev_feat = gen_dev_features(X)
+		train = sess.merge(tra_feat, on=['sid'], how='left').merge(dev_feat, on=['sid'], how='left')
+		train.drop(["target"], inplace=True, axis=1)
+		train.drop(["sid"], inplace=True, axis=1)
+		y = sess["target"]
+		
+		if is_train:
+			return train.values.tolist(), y.values.tolist()
+		else:
+			return train.values.tolist(), None
 
 	def fit_transform(self):
-		# Loading data
-		X, y = self.load_data(train=True)
-
+		start = time.clock()
+		try: 
+			X, y = DataLoader.load_from_pickle(Util.BEFORE_PREPROCESSING)
+			print("FILE FOUND")
+		except FileNotFoundError:
+			print("FILE NOT FOUND")
+			X, y = self.load_data(is_train=True)
+			DataLoader.save_into_pickle(Util.BEFORE_PREPROCESSING, [X, y])
+			preproc_time = time.clock() - start
+			input("TIME TO LOAD THE DATA: "+ str(preproc_time))
+		
 		# normalize data
 		X = self.standardize_features(X)
 
@@ -92,8 +121,8 @@ def process_string(s):
 	s = s.replace("LIST_PRODUCT", "LP")
 	return s
 
+def encode_train(df):
 
-def transform_train(df):
 	"""
 	Dataframe grouped by id. Type feature is encoded in two vectors page_vec, event_vec
 	Resulting dataframe saved in df_encoded.pkl
@@ -101,15 +130,66 @@ def transform_train(df):
 	df_grouped = df.groupby('sid').apply(lambda x: x.sort_values(["duration"]))
 	df_grouped['page_vec'] = df_grouped["type"].apply(lambda x: get_type_feature(process_string(x))[0])
 	df_grouped['event_vec'] = df_grouped["type"].apply(lambda x: get_type_feature(process_string(x))[1])
-
 	df_grouped.to_pickle("./df_encoded.pkl")
+
 	return df_grouped
 
 
 def columns_df_to_list(df):
-	df["list"] = df.apply(lambda x: list(x[1:]), axis=1)
+	"""
+	Returns a dataframe sid, [list of actions features]
+	"""
+	df["list"] = df.apply(lambda x: list(x[:]), axis=1)
 	listed_final = df["list"]
 	listed_final = listed_final.reset_index().groupby('sid')['list'].apply(list).reset_index()
 	return listed_final
 
+def matr_to_list(l, op = np.add):
+	
+	res_page = np.zeros(5)
+	res_event = np.zeros(3)
+	
+	for oh_page, oh_event in l:
+		res_page = op(oh_page, res_page)
+		res_event = op(oh_event, res_event)
+		
+	return np.append(res_page, res_event)
 
+def gen_tra_features(df):
+	page_type = ['PA', 'LP', 'LR', 'CAROUSEL', 'SHOW_CASE']
+	event_type = ['ADD_TO_BASKET', 'PURCHASE_PRODUCT', 'PRODUCT']
+	
+	tra_one_list = df.groupby('sid').agg({'type':lambda x: list(x)}).reset_index()
+	tra_one_list['one_hot'] = tra_one_list["type"].apply(lambda x: [get_type_feature(s) for s in x])
+	tra_one_list["feature"] = tra_one_list["one_hot"].apply(matr_to_list)
+	
+	tra_features = pd.DataFrame(tra_one_list["feature"].values.tolist(), columns=page_type+event_type)
+	tra_features["sid"] = tra_one_list["sid"]
+	return tra_features
+
+
+def gen_dev_features(df):
+	dummies = pd.get_dummies(df["device"])
+	temp = pd.DataFrame()
+	temp["sid"] = df["sid"]
+	temp[["dev1", "dev2", "dev3"]] = dummies
+	dev_features = temp.groupby("sid").max().reset_index()
+	return dev_features
+
+
+def transform_train_tracking(df):
+
+	df = encode_train(df)
+	df = columns_df_to_list(df)
+	df.to_pickle("./df_transformed.pkl")
+
+	return df
+
+def get_dataset(transformed_df, label_df):
+
+	merged_df = label_df.merge(transformed_df, on=['sid'], how='left')
+	merged_df['label'] = merged_df["target"].apply(lambda x: 0 if x is False else 1)
+	x = merged_df['list'].tolist()
+	y = merged_df['label'].tolist()
+
+	return x,y
