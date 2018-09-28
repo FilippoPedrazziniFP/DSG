@@ -11,7 +11,7 @@ class Util():
     FEATURES = "./data/Xtrain.p"
     LABELS = "./data/Ytrain.p"
 
-    AFTER_PREPROCESSING = "./data/features.pkl"
+    AFTER_PREPROCESSING = "./data/after_preprocessing.pkl"
 
 class DataLoader(object):
     @staticmethod

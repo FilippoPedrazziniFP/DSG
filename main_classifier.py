@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 import time
 
-from dsg.loader import DataLoader
-from dsg.models.classifier import CatBoostClassifier
+from dsg.loader import DataLoader, Util
+from dsg.models.classifier import CatBoost
 from dsg.preprocessor import FlatPreprocessor
 
 def generate_submission_file(model):
@@ -20,10 +20,16 @@ def main():
     # to redoit
     data = DataLoader.load_created_data()
     preprocessor = FlatPreprocessor()
-    X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(data)
-
-    DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
-    [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
+    
+    try:
+        print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+        X_train, y_train, X_test, y_test, X_val, y_val, X, y = \
+        DataLoader.load_created_pickle(Util.AFTER_PREPROCESSING)
+    except:
+        print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+        X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform(data)
+        DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
+        [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
 
     preproc_time = time.clock() - start
     input("TIME TO LOAD AND PREPROCESS THE DATA: "+ str(preproc_time))
@@ -31,7 +37,7 @@ def main():
     start = time.clock()
 
     # fit and evaluate the model
-    model = CatBoostClassifier()
+    model = CatBoost()
     model.fit(X_train, y_train)
 
     fit_model = time.clock() - preproc_time

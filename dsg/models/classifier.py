@@ -2,7 +2,7 @@ from catboost import CatBoostClassifier
 from dsg.models.model import Model
 from sklearn.metrics import log_loss
 
-class CatBoostClassifier(Model):
+class CatBoost(Model):
     
     def fit(self, X_train, y_train):
         # Fit the model
