@@ -1,9 +1,0 @@
-0. Create a folder ./data at the same level as main_classifier.py: put in the folder all the competition files (csv)
-
-1. python3 main_classifier.py
-
-it creates the file (X_train, y_train...) to feed the model.
-
-2. python3 main_script.py
-
-To train the model and create the submission file.
