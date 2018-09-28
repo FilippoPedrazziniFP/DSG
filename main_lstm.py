@@ -11,14 +11,25 @@ def main():
 	
 	start = time.clock()
 	
-    # load data
-    df_train = DataLoader.load_train_data()
+	X_train = [
+		[
+			[0, 1, 0, 1, 0]
+		], 
+		[
+			[0, 1, 0, 1, 0],
+			[0, 1, 0, 1, 0],
+			[0, 1, 0, 1, 0],
+			[0, 1, 0, 1, 0]
+		],
+		[
+			[0, 1, 0, 1, 0],
+			[0, 1, 0, 1, 0],
+			[0, 1, 0, 1, 0]
+		]
+	]
 
-    # define preprocessor and transform data
-    preprocessor = Preprocessor(seq_length=SEQ_LENGTH)
-    X_train, y_train, X_test, y_test, X_val, y_val = preprocessor.transform(df_train)
-	
-    preproc_time = time.clock() - start
+	y_train = [0, 1, 0]
+	preproc_time = time.clock() - start
 
 	input("TIME TO LOAD AND PREPROCESS THE DATA: "+ str(preproc_time))
 
