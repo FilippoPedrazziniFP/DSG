@@ -1,6 +1,6 @@
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
-from dsg.loader import Util,DataLoader
+from dsg.loader import Util, DataLoader
 import pandas as pd
 
 
@@ -27,24 +27,30 @@ class SeqPreprocessor():
     def fit_transform(self, train=True):
         if train:
             try:
+                print("Loading pickle data...")
                 df_transformed = DataLoader.load_from_pickle("./df_transformed_train.pkl")
                 df_train = pd.read_csv(Util.TRAIN_SESSION)
+                print("loading completed")
             except:
+                print("loading failed, constructing data...")
                 df_train_tracking = pd.read_csv(Util.TRAIN_TRACKING)
                 df_transformed = transform_train_tracking(df_train_tracking)
                 df_transformed.to_pickle("./df_transformed_train.pkl")
+                print("data constructed")
             x, y = get_dataset(df_transformed, df_train)
             return x, y
 
         else:
             try:
+                print("Loading pickle data...")
                 df_transformed = DataLoader.load_from_pickle("./df_transformed_test.pkl")
-
+                print("loading completed")
             except:
+                print("loading failed, constructing data...")
                 df_test_tracking = pd.read_csv(Util.TEST_TRACKING)
                 df_transformed = transform_train_tracking(df_test_tracking)
                 df_transformed.to_pickle("./df_transformed_test.pkl")
-
+                print("data constructed")
             x = df_transformed['list'].tolist()
             return x
 
@@ -117,3 +123,4 @@ def get_dataset(transformed_df, label_df):
     y = merged_df['label'].tolist()
 
     return x, y
+
