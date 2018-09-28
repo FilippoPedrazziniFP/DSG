@@ -42,7 +42,7 @@ def process_string(s):
     return s
 
 
-def transform_train(df):
+def encode_train(df):
     """
     Dataframe grouped by id. Type feature is encoded in two vectors page_vec, event_vec
     Resulting dataframe saved in df_encoded.pkl
@@ -56,9 +56,18 @@ def transform_train(df):
 
 
 def columns_df_to_list(df):
+    """
+    Returns a dataframe sid, [list of actions features]
+    """
     df["list"] = df.apply(lambda x: list(x[1:]), axis=1)
     listed_final = df["list"]
     listed_final = listed_final.reset_index().groupby('sid')['list'].apply(list).reset_index()
     return listed_final
 
 
+def transform_train_tracking(df):
+
+    df = encode_train(df)
+    df = columns_df_to_list(df)
+
+    return df
