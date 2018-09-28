@@ -1,5 +1,8 @@
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
+from dsg.loader import Util,DataLoader
+import pandas as pd
+
 
 
 class Preprocessor():
@@ -7,7 +10,7 @@ class Preprocessor():
     def __init__(self):
         super(Preprocessor, self).__init__()
 
-    def fit_transform(self, data):
+    def fit_transform(self):
         raise NotImplementedError
 
     def fit(self, data):
@@ -66,6 +69,23 @@ class FlatPreprocessor(Preprocessor):
         X_train = scaler.transform(X_train)
         return X_train
 
+class SeqPreprocessor():
+    def fit(self):
+        return
+
+    def fit_transform(self, train = True):
+        if train:
+            df_train = pd.read_csv(Util.TRAIN_SESSION)
+            df_train_tracking = pd.read_csv(Util.TRAIN_TRACKING)
+            df_transformed = transform_train_tracking(df_train_tracking)
+            x, y = get_dataset(df_transformed, df_train)
+            return x, y
+
+        else:
+            df_test_tracking = pd.read_csv(Util.TEST_TRACKING)
+            df_transformed = transform_train_tracking(df_test_tracking)
+            x = df_transformed['list'].tolist()
+            return x,_
 
 def get_type_feature(type_str):
     """
