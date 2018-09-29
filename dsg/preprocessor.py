@@ -19,10 +19,23 @@ class Preprocessor():
 	def transform(self):
 		raise NotImplementedError
 	
+	def train_test_validation_split(self, features, labels):
+
+		X_test = features[-self.test_samples:]
+		y_test = labels[-self.test_samples:]
+
+		X_val = features[-(self.test_samples+self.val_samples):-self.test_samples]
+		y_val = labels[-(self.test_samples+self.val_samples):-self.test_samples]
+
+		X_train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
+		y_train = labels[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
+
+		return X_train, y_train, X_test, y_test, X_val, y_val
+	
 class FlatPreprocessor(Preprocessor):
 
-	def __init__(self, train_samples=2000, 
-		test_samples=300, val_samples=0):
+	def __init__(self, train_samples=120000, 
+		test_samples=100, val_samples=10000):
 		super(Preprocessor, self).__init__()
 		self.train_samples = train_samples
 		self.test_samples = test_samples
@@ -38,7 +51,13 @@ class FlatPreprocessor(Preprocessor):
 		
 		tra_feat = gen_tra_features(X)
 		dev_feat = gen_dev_features(X)
-		train = sess.merge(tra_feat, on=['sid'], how='left').merge(dev_feat, on=['sid'], how='left')
+		site_feat = gen_site_features(X)
+		#actpag_feat = gen_actpag_features(X)
+		time_feat = gen_time_features(X)
+		sum_feat = gen_sum_features(X)
+		#mask_time = time_feat["time"] > 5400
+		#time_feat = time_feat[mask_time]
+		train = sess.merge(tra_feat, on=['sid'], how='left').merge(dev_feat, on=['sid'], how='left').merge(site_feat, on=['sid'], how='left').merge(time_feat, on=['sid'], how='left').merge(sum_feat, on=['sid'], how='left')#.merge(actpag_feat, on=['sid'], how='left')
 		train.drop(["target"], inplace=True, axis=1)
 		train.drop(["sid"], inplace=True, axis=1)
 		y = sess["target"]
@@ -55,7 +74,7 @@ class FlatPreprocessor(Preprocessor):
 			print("FILE FOUND")
 		except FileNotFoundError:"""
 		print("FILE NOT FOUND")
-		X, _ = self.load_data(is_train=False)
+		X, y = self.load_data(is_train=False)
 		DataLoader.save_into_pickle(Util.BEFORE_PREPROCESSING_TEST, [X, y])
 		preproc_time = time.clock() - start
 		input("TIME TO LOAD THE DATA: "+ str(preproc_time))
@@ -87,19 +106,6 @@ class FlatPreprocessor(Preprocessor):
 		self.train_test_validation_split(X, y)
 
 		return X_train, y_train, X_test, y_test, X_val, y_val, X, y
-	
-	def train_test_validation_split(self, features, labels):
-
-		X_test = features[-self.test_samples:]
-		y_test = labels[-self.test_samples:]
-
-		X_val = features[-(self.test_samples+self.val_samples):-self.test_samples]
-		y_val = labels[-(self.test_samples+self.val_samples):-self.test_samples]
-
-		X_train = features[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
-		y_train = labels[-(self.test_samples+self.val_samples+self.train_samples):-(self.test_samples+self.val_samples)]
-
-		return X_train, y_train, X_test, y_test, X_val, y_val
 	
 	def standardize_features(self, X_train):
 		scaler = StandardScaler()
@@ -168,7 +174,17 @@ def matr_to_list(l, op = np.add):
 	for oh_page, oh_event in l:
 		res_page = op(oh_page, res_page)
 		res_event = op(oh_event, res_event)
-		
+			
+
+	s = np.sum(res_page)
+	if s is 0:
+		s = 1
+	res_page = np.divide(res_page, s)
+	s = np.sum(res_event)
+	if s is 0:
+		s = 1
+	res_event = np.divide(res_event, s)
+	
 	return np.append(res_page, res_event)
 
 def gen_tra_features(df):
@@ -192,6 +208,47 @@ def gen_dev_features(df):
 	dev_features = temp.groupby("sid").max().reset_index()
 	return dev_features
 
+def gen_site_features(df):
+	dummies = pd.get_dummies(df["siteid"])
+	temp = pd.DataFrame()
+	temp["sid"] = df["sid"]
+	temp[["site1", "site2", "site3"]] = dummies
+	site_features = temp.groupby("sid").max().reset_index()
+	return site_features
+
+def gen_actpag_features(df):
+	dummies = pd.get_dummies(df["type"])
+	temp = pd.DataFrame()
+	temp["sid"] = df["sid"]
+	temp[df["type"].unique()] = dummies
+	actpag_features = temp.groupby("sid").sum().reset_index()
+	
+	for col in ['PA', 'LR', 'CAROUSEL', 'SHOW_CASE']:
+		if col in actpag_features.columns:
+			actpag_features.drop([col], inplace=True, axis=1)
+	return actpag_features
+
+
+def convert_time(s):
+	s = s.split(' ')[-1]
+	s = s.split('.')[0]
+
+	h, m, sec = s.split(':')
+	time = int(sec) + 60 * int(m) + 60 * 60 * int(h)
+
+	return time
+
+def gen_time_features(df):
+	time_feature = df[["sid", "duration"]]
+	time_feature["time"] = time_feature["duration"].apply(lambda x: convert_time(x))
+	time_feature = time_feature.groupby("sid")["time"].max().reset_index()
+	return time_feature
+
+def gen_sum_features(df):
+	sum_feat = df[["sid", "nb_query_terms", "pn", "quantity"]]
+	sum_feat.fillna(0, inplace=True)
+	sum_feat = sum_feat.groupby("sid").mean()
+	return sum_feat
 
 def transform_train_tracking(df):
 

@@ -1,8 +1,9 @@
 import numpy as np
-
+from tqdm import tqdm
 from tensorflow.python.keras.layers import LSTM, Dense
 from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.optimizers import Adam
+from sklearn.metrics import log_loss
 
 class Model(object):
 	def __init__(self):
@@ -16,7 +17,7 @@ class Model(object):
 		raise NotImplementedError
 
 class RecurrentModel(Model):
-	def __init__(self, epochs=10, steps_per_epoch=1):
+	def __init__(self, epochs=500, steps_per_epoch=10):
 		super(Model, self).__init__()
 		self.epochs = epochs
 		self.steps_per_epoch = steps_per_epoch
@@ -31,7 +32,7 @@ class RecurrentModel(Model):
 	
 	def build_model(self, features_len):
 		model = Sequential()
-		model.add(LSTM(256, input_shape=(None, features_len)))
+		model.add(LSTM(32, input_shape=(None, features_len)))
 		model.add(Dense(1, activation="sigmoid"))
 		model.compile(
 			loss='binary_crossentropy',
@@ -72,50 +73,33 @@ class RecurrentModel(Model):
 				else:
 					yield X_train, y_train
 	
-	def transform_into_model_data(self, X, y):
+	def transform_into_model_data(self, X, y=None):
 		# Transform the data into trainable data (numpy arrays)
 		X = np.asarray(X)
-		y = np.asarray(y)
-		"""try:
-			# Reshape the label to feed the model (Categorical crossentropy)
-			# y = to_categorical(y, num_classes=self.label_dim)
-			y = to_categorical(y, num_classes=self.label_dim)
-			# y = np.reshape(y, (y.shape[0], y.shape[1], 1))
-			# print("Sparse cross entropy")
-		except IndexError as e:
-			print("TRAINING SAMPLES MUST HAVE ALL THE ENITYT TYPES.")
-			print("PROVIDE SAMPLES FOR EACH ENTITY IN ORDER TO 
-			TRAIN THE DEEP LEARNING MODEL.")"""
+		if y is not None:
+			y = np.asarray(y)
 		return X, y
 	
 	def fit(self, X_train, y_train, X_val=None, y_val=None):
-
 		# get max sequence length inside the training samples
-		self.max_sequence_length = self.get_max_sequence_length(X_train)
+		# self.max_sequence_length = self.get_max_sequence_length(X_train)
+		self.max_sequence_length = 5
+
+		print("MAX SEQUENCE LENGTH : "+str(self.max_sequence_length))
 		
 		# build the model architecture in case of None
 		if self.model == None:
 			print("FEATURES DIM : ", len(X_train[0][0]))
 			self.model = self.build_model(len(X_train[0][0]))
-		
-		"""
-			HERE PREPROCESSING
-		"""
-		
+				
 		# Fit the model
 		print("TRAINING MODEL..")
 		if X_val is not None:
-			# preprocess
-
-			"""
-				HERE PREPROCESSING
-			"""
-
 			# fit the model
 			history = self.model.fit_generator(
 				self.data_iterator(X_train, y_train, self.max_sequence_length),
 				epochs=self.epochs,
-				validation_data=self.data_iterator(X_val, y_val, max_sequence_length),
+				validation_data=self.data_iterator(X_val, y_val, self.max_sequence_length),
 				validation_steps=self.steps_per_epoch,
 				steps_per_epoch=self.steps_per_epoch,
 				shuffle=True,
@@ -133,13 +117,31 @@ class RecurrentModel(Model):
 		return history
 	
 	def evaluate(self, X_test, y_test):
-		losses = self.model.evaluate_generator(
-			self.data_iterator(X, y, self.max_sequence_length),
-			workers=16,
-			use_multiprocessing=True)
-		print(losses)
-		return losses
+		y_pred = self.transform(X_test)
+		score = log_loss(y_test, y_pred)
+		print("LOG LOSS : ", score)
+		return
+	
+	def predict(self, X):
+		predictions = []
+		for sample in tqdm(X):
+			if len(sample) == 1:
+				sample, _ = self.transform_into_model_data([[sample]])
+			else:
+				sample, _ = self.transform_into_model_data([sample])
+			prediction = self.model.predict_proba(sample)
+			prediction = np.squeeze(prediction)
+			predictions.append(prediction)
+		return predictions
 	
 	def transform(self, X):
-		prediction = self.model.predict_proba(X)
-		return prediction
+		predictions = []
+		for sample in X:
+			if len(sample) == 1:
+				sample, _ = self.transform_into_model_data([[sample]])
+			else:
+				sample, _ = self.transform_into_model_data([sample])
+			prediction = self.model.predict_proba(sample)
+			prediction = np.squeeze(prediction)
+			predictions.append([1-prediction, prediction])
+		return predictions

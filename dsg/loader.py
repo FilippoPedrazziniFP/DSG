@@ -12,16 +12,24 @@ class Util():
 	FEATURES = "./data/Xtrain.p"
 	LABELS = "./data/Ytrain.p"
 
+	TRAIN_LSTM = "./data/train_lstm.pickle"
+	TEST_LSTM = "./data/test_lstm.pickle"
+
 	AFTER_PREPROCESSING = "./data/after_preprocessing.pkl"
 	BEFORE_PREPROCESSING = "./data/before_preprocessing.pkl"
 	AFTER_PREPROCESSING_TEST = "./data/after_preprocessing_test.pkl"
 	BEFORE_PREPROCESSING_TEST = "./data/before_preprocessing_test.pkl"
 
+	AFTER_PREPROCESSING_LSTM = "./data/after_preprocessing_lstm.pkl"
+	BEFORE_PREPROCESSING_LSTM = "./data/before_preprocessing_lstm.pkl"
+	AFTER_PREPROCESSING_TEST_LSTM = "./data/after_preprocessing_test_lstm.pkl"
+	BEFORE_PREPROCESSING_TEST_LSTM = "./data/before_preprocessing_test_lstm.pkl"
+
 	@staticmethod
 	def generate_submission_file(model, preprocessor):
 		X_test = preprocessor.transform()
 		y_pred = model.predict(X_test)
-
+		input(y_pred)
 		submission = pd.read_csv(Util.RANDOM_SUBMISSION)
 		submission["target"] = y_pred
 		submission.to_csv(Util.SUBMISSION, index=False)

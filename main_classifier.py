@@ -1,9 +1,10 @@
 import numpy as np
 import tensorflow as tf
 import time
+from collections import Counter
 
 from dsg.loader import DataLoader, Util
-from dsg.models.classifier import CatBoost
+from dsg.models.classifier import CatBoost, LightGradientBoosting
 from dsg.preprocessor import FlatPreprocessor
 
 def main():
@@ -33,13 +34,20 @@ def main():
 
     # fit and evaluate the model
     model = CatBoost()
-    model.fit(X_train, y_train)
+    """from imblearn.combine import SMOTEENN
+    sm = SMOTEENN()
+    print('dataset shape {}'.format(Counter(y_train)))
+    X_train, y_train = sm.fit_sample(X_train, y_train)
+    print('Resampled dataset shape {}'.format(Counter(y_train)))"""
+    # model = LightGradientBoosting()
+    # model.fit(X_train, y_train)
+    # model.tune(X_train, y_train, X_val, y_val)
 
     fit_model = time.clock() - preproc_time
     input("TIME TO FIT THE MODEL: "+ str(fit_model))
 
     # evaluating performances
-    model.evaluate(X_test, y_test)
+    # model.evaluate(X_test, y_test)
 
     # fit on entire data
     model.fit(X, y)
