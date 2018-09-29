@@ -40,7 +40,7 @@ class SeqPreprocessor(Preprocessor):
             return X_test, None
         return
     
-    def transform(self, pad=True):
+    def transform(self, pad=False):
         X, _ = self.load_data(is_train=False)
         
         if pad == True:
@@ -49,7 +49,7 @@ class SeqPreprocessor(Preprocessor):
         
         return X
     
-    def fit_transform(self, pad=True):
+    def fit_transform(self, pad=False):
         X, y = self.load_data(is_train=True)
         
         if pad == True:

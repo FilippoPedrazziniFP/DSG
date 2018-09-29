@@ -13,4 +13,3 @@ Data Science Game Competition
 ## Mounting Remote File System
 
     sshfs zione@13.69.58.40:/home/zione/Desktop/DSG/DSG/ mnt/virtual_machine/
-

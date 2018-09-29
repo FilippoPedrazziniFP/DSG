@@ -7,6 +7,14 @@ from dsg.loader import DataLoader, Util
 from dsg.models.classifier import CatBoost, LightGradientBoosting
 from dsg.preprocessor import FlatPreprocessor
 
+def resampling(X_train, y_train):
+    from imblearn.combine import SMOTEENN
+    sm = SMOTEENN()
+    print('dataset shape {}'.format(Counter(y_train)))
+    X_train, y_train = sm.fit_sample(X_train, y_train)
+    print('Resampled dataset shape {}'.format(Counter(y_train)))
+    return X_train, y_train
+
 def main():
 	
     # Fixing the seed
@@ -17,15 +25,15 @@ def main():
 
     preprocessor = FlatPreprocessor()
     
-    """try:
+    try:
         X_train, y_train, X_test, y_test, X_val, y_val, X, y = \
         DataLoader.load_from_pickle(Util.AFTER_PREPROCESSING)
         print("FILE FOUND")
-    except FileNotFoundError:"""
-    print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
-    X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform()
-    DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
-    [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
+    except FileNotFoundError:
+	    print("FILE NOT FOUND, GENERATING THE TRAINIG DATA")
+	    X_train, y_train, X_test, y_test, X_val, y_val, X, y = preprocessor.fit_transform()
+	    DataLoader.save_into_pickle(Util.AFTER_PREPROCESSING, 
+	    [X_train, y_train, X_test, y_test, X_val, y_val, X, y])
 
     preproc_time = time.clock() - start
     input("TIME TO LOAD AND PREPROCESS THE DATA: "+ str(preproc_time))
@@ -34,12 +42,6 @@ def main():
 
     # fit and evaluate the model
     model = CatBoost()
-    """from imblearn.combine import SMOTEENN
-    sm = SMOTEENN()
-    print('dataset shape {}'.format(Counter(y_train)))
-    X_train, y_train = sm.fit_sample(X_train, y_train)
-    print('Resampled dataset shape {}'.format(Counter(y_train)))"""
-    # model = LightGradientBoosting()
     # model.fit(X_train, y_train)
     # model.tune(X_train, y_train, X_val, y_val)
 
